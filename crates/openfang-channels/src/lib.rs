@@ -50,3 +50,5 @@ pub mod linkedin;
 pub mod mumble;
 pub mod ntfy;
 pub mod webhook;
+// Wave 6 — Regional channels
+pub mod zalo;

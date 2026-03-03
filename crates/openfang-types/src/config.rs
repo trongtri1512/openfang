@@ -1514,6 +1514,9 @@ pub struct ChannelsConfig {
     pub webhook: Option<WebhookConfig>,
     /// LinkedIn messaging configuration (None = disabled).
     pub linkedin: Option<LinkedInConfig>,
+    // Wave 6 — Regional channels
+    /// Zalo personal messaging via openzca CLI (None = disabled).
+    pub zalo: Option<ZaloConfig>,
 }
 
 /// Telegram channel adapter configuration.
@@ -1637,6 +1640,36 @@ impl Default for WhatsAppConfig {
             webhook_port: 8443,
             gateway_url_env: "WHATSAPP_WEB_GATEWAY_URL".to_string(),
             allowed_users: vec![],
+            default_agent: None,
+            overrides: ChannelOverrides::default(),
+        }
+    }
+}
+
+/// Zalo personal messaging channel adapter configuration.
+///
+/// Uses the [openzca](https://github.com/trongtri1512/openzca) CLI as a subprocess gateway.
+/// Incoming messages are received via `openzca listen --supervised --raw --keep-alive`.
+/// Outgoing messages are sent via `openzca msg send <threadId> <text>`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ZaloConfig {
+    /// Path to the openzca CLI binary (default: "openzca", resolved from PATH).
+    pub cli_path: String,
+    /// openzca profile name for multi-account support (None = default profile).
+    pub profile: Option<String>,
+    /// Default agent name to route messages to.
+    pub default_agent: Option<String>,
+    /// Per-channel behavior overrides.
+    #[serde(default)]
+    pub overrides: ChannelOverrides,
+}
+
+impl Default for ZaloConfig {
+    fn default() -> Self {
+        Self {
+            cli_path: "openzca".to_string(),
+            profile: None,
             default_agent: None,
             overrides: ChannelOverrides::default(),
         }

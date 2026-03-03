@@ -1713,6 +1713,21 @@ const CHANNEL_REGISTRY: &[ChannelMeta] = &[
         setup_steps: &["Enter host and username below", "Optionally add a password"],
         config_template: "[channels.mumble]\nhost = \"\"\nusername = \"openfang\"",
     },
+    // ── Regional (1) ───────────────────────────────────────────────────────
+    ChannelMeta {
+        name: "zalo", display_name: "Zalo", icon: "ZL",
+        description: "Zalo personal messaging via openzca CLI",
+        category: "messaging", difficulty: "Easy", setup_time: "~2 min",
+        quick_setup: "Login with QR code via openzca — no developer account needed",
+        setup_type: "qr",
+        fields: &[
+            ChannelField { key: "cli_path", label: "openzca CLI Path", field_type: FieldType::Text, env_var: None, required: false, placeholder: "openzca", advanced: true },
+            ChannelField { key: "profile", label: "Profile Name", field_type: FieldType::Text, env_var: None, required: false, placeholder: "default", advanced: true },
+            ChannelField { key: "default_agent", label: "Default Agent", field_type: FieldType::Text, env_var: None, required: false, placeholder: "assistant", advanced: true },
+        ],
+        setup_steps: &["Install openzca: npm install -g openzca@latest", "Run: openzca auth login", "Scan the QR code with Zalo on your phone"],
+        config_template: "[channels.zalo]\ncli_path = \"openzca\"",
+    },
 ];
 
 /// Check if a channel is configured (has a `[channels.xxx]` section in config).
@@ -1758,6 +1773,7 @@ fn is_channel_configured(config: &openfang_types::config::ChannelsConfig, name: 
         "gotify" => config.gotify.is_some(),
         "webhook" => config.webhook.is_some(),
         "mumble" => config.mumble.is_some(),
+        "zalo" => config.zalo.is_some(),
         _ => false,
     }
 }
@@ -1869,6 +1885,7 @@ fn channel_config_values(
         "gotify" => config.gotify.as_ref().and_then(|c| serde_json::to_value(c).ok()),
         "webhook" => config.webhook.as_ref().and_then(|c| serde_json::to_value(c).ok()),
         "linkedin" => config.linkedin.as_ref().and_then(|c| serde_json::to_value(c).ok()),
+        "zalo" => config.zalo.as_ref().and_then(|c| serde_json::to_value(c).ok()),
         _ => None,
     }
 }

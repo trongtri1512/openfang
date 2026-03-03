@@ -17,5 +17,11 @@ EXPOSE 4200
 VOLUME /data
 ENV OPENFANG_HOME=/data
 ENV OPENFANG_LISTEN=0.0.0.0:4200
-ENTRYPOINT ["openfang"]
-CMD ["start"]
+ENTRYPOINT ["/bin/sh", "-c", "\
+    mkdir -p /data && \
+    if [ -n \"$OPENFANG_API_KEY\" ] && [ ! -f /data/config.toml ]; then \
+    printf '[kernel]\napi_key = \"%s\"\n' \"$OPENFANG_API_KEY\" > /data/config.toml; \
+    elif [ -n \"$OPENFANG_API_KEY\" ] && ! grep -q 'api_key' /data/config.toml 2>/dev/null; then \
+    printf '\n[kernel]\napi_key = \"%s\"\n' \"$OPENFANG_API_KEY\" >> /data/config.toml; \
+    fi && \
+    exec openfang start"]
