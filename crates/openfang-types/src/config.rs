@@ -1646,18 +1646,23 @@ impl Default for WhatsAppConfig {
     }
 }
 
-/// Zalo personal messaging channel adapter configuration.
+/// Zalo personal messaging via native Rust HTTP client (None = disabled).
 ///
-/// Uses the [openzca](https://github.com/trongtri1512/openzca) CLI as a subprocess gateway.
-/// Incoming messages are received via `openzca listen --supervised --raw --keep-alive`.
-/// Outgoing messages are sent via `openzca msg send <threadId> <text>`.
+/// Uses cookie-based authentication against the Zalo Web API.
+/// Cookie can be obtained via QR login or from Zalo Web browser session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ZaloConfig {
-    /// Path to the openzca CLI binary (default: "openzca", resolved from PATH).
-    pub cli_path: String,
-    /// openzca profile name for multi-account support (None = default profile).
-    pub profile: Option<String>,
+    /// Path to a file containing the Zalo cookie string.
+    /// Supports raw cookie text or JSON `{"cookie": "..."}` format.
+    /// Tildes (~/) are expanded to user home directory.
+    pub cookie_path: String,
+    /// IMEI device identifier (auto-generated if empty).
+    #[serde(default)]
+    pub imei: String,
+    /// User agent string for HTTP requests (auto-detected if empty).
+    #[serde(default)]
+    pub user_agent: String,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
     /// Per-channel behavior overrides.
@@ -1668,8 +1673,9 @@ pub struct ZaloConfig {
 impl Default for ZaloConfig {
     fn default() -> Self {
         Self {
-            cli_path: "openzca".to_string(),
-            profile: None,
+            cookie_path: "~/.openfang/zalo-cookie.txt".to_string(),
+            imei: String::new(),
+            user_agent: String::new(),
             default_agent: None,
             overrides: ChannelOverrides::default(),
         }

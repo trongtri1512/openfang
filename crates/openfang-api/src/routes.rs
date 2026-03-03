@@ -1716,17 +1716,18 @@ const CHANNEL_REGISTRY: &[ChannelMeta] = &[
     // ── Regional (1) ───────────────────────────────────────────────────────
     ChannelMeta {
         name: "zalo", display_name: "Zalo", icon: "ZL",
-        description: "Zalo personal messaging via openzca CLI",
-        category: "messaging", difficulty: "Easy", setup_time: "~3 min",
-        quick_setup: "Login via openzca CLI — no developer account needed",
+        description: "Zalo personal messaging via native API (cookie auth)",
+        category: "messaging", difficulty: "Easy", setup_time: "~5 min",
+        quick_setup: "Login with QR code or cookie — no developer account needed",
         setup_type: "form",
         fields: &[
-            ChannelField { key: "cli_path", label: "openzca CLI Path", field_type: FieldType::Text, env_var: None, required: false, placeholder: "openzca", advanced: true },
-            ChannelField { key: "profile", label: "Profile Name", field_type: FieldType::Text, env_var: None, required: false, placeholder: "default", advanced: true },
+            ChannelField { key: "cookie_path", label: "Cookie File Path", field_type: FieldType::Text, env_var: None, required: false, placeholder: "~/.openfang/zalo-cookie.txt", advanced: false },
+            ChannelField { key: "imei", label: "Device IMEI", field_type: FieldType::Text, env_var: None, required: false, placeholder: "(auto-generated)", advanced: true },
+            ChannelField { key: "user_agent", label: "User Agent", field_type: FieldType::Text, env_var: None, required: false, placeholder: "(auto-detected)", advanced: true },
             ChannelField { key: "default_agent", label: "Default Agent", field_type: FieldType::Text, env_var: None, required: false, placeholder: "assistant", advanced: false },
         ],
-        setup_steps: &["1. Install: npm install -g openzca@latest", "2. Login: openzca auth login (scan QR with Zalo)", "3. Click Save below to enable the channel"],
-        config_template: "[channels.zalo]\ncli_path = \"openzca\"",
+        setup_steps: &["1. Open Zalo Web (chat.zalo.me) in your browser", "2. Login and copy your cookie string (zpw_sek=...)", "3. Save cookie to ~/.openfang/zalo-cookie.txt", "4. Click Save below to enable the channel"],
+        config_template: "[channels.zalo]\ncookie_path = \"~/.openfang/zalo-cookie.txt\"",
     },
 ];
 
