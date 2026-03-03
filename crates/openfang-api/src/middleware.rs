@@ -4,15 +4,41 @@
 //! - Request ID generation and propagation
 //! - Per-endpoint structured request logging
 //! - In-memory rate limiting (per IP)
+//! - Bearer token authentication (global key + per-user RBAC keys)
 
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode};
 use axum::middleware::Next;
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::info;
 
 /// Request ID header name (standard).
 pub const REQUEST_ID_HEADER: &str = "x-request-id";
+
+/// Authentication configuration passed as middleware state.
+///
+/// Holds the global API key for backward compatibility and a reference to
+/// the kernel's AuthManager for per-user API key authentication.
+#[derive(Clone)]
+pub struct AuthConfig {
+    /// Global API key (empty = no global auth).
+    pub global_api_key: String,
+    /// Arc reference to the kernel for accessing the AuthManager.
+    pub kernel: std::sync::Arc<openfang_kernel::OpenFangKernel>,
+}
+
+/// Authenticated user identity injected into request extensions.
+///
+/// Downstream handlers can extract this to determine who made the request
+/// and what role they have.
+#[derive(Debug, Clone)]
+pub struct AuthenticatedUser {
+    /// User display name ("admin" for global key, or the configured user name).
+    pub name: String,
+    /// User role string ("owner", "admin", "user", "viewer").
+    pub role: String,
+}
 
 /// Middleware: inject a unique request ID and log the request/response.
 pub async fn request_logging(request: Request<Body>, next: Next) -> Response<Body> {
@@ -45,15 +71,23 @@ pub async fn request_logging(request: Request<Body>, next: Next) -> Response<Bod
 
 /// Bearer token authentication middleware.
 ///
-/// When `api_key` is non-empty, all requests must include
-/// `Authorization: Bearer <api_key>`. If the key is empty, auth is bypassed.
+/// Authentication flow:
+/// 1. If no global key AND no per-user keys → restrict to loopback only
+/// 2. Check public endpoints that don't require auth
+/// 3. Extract Bearer token (or X-API-Key header, or ?token= query param)
+/// 4. Match against global `api_key` (backward compatible) → role: owner
+/// 5. Match against per-user `api_key_hash` via AuthManager → role from config
+/// 6. Inject `AuthenticatedUser` into request extensions for downstream handlers
 pub async fn auth(
-    axum::extract::State(api_key): axum::extract::State<String>,
-    request: Request<Body>,
+    axum::extract::State(config): axum::extract::State<AuthConfig>,
+    mut request: Request<Body>,
     next: Next,
 ) -> Response<Body> {
-    // If no API key configured, restrict to loopback addresses only.
-    if api_key.is_empty() {
+    let has_global_key = !config.global_api_key.is_empty();
+    let has_user_keys = config.kernel.auth.is_enabled();
+
+    // If no API key configured AND no per-user keys, restrict to loopback addresses only.
+    if !has_global_key && !has_user_keys {
         let is_loopback = request
             .extensions()
             .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
@@ -76,6 +110,12 @@ pub async fn auth(
                 ))
                 .unwrap_or_default();
         }
+
+        // Loopback with no auth → treat as owner
+        request.extensions_mut().insert(AuthenticatedUser {
+            name: "local".to_string(),
+            role: "owner".to_string(),
+        });
         return next.run(request).await;
     }
 
@@ -94,6 +134,9 @@ pub async fn auth(
         || path == "/api/profiles"
         || path == "/api/config"
         || path.starts_with("/api/uploads/")
+        // Auth endpoints must be accessible without auth
+        || path == "/api/auth/login"
+        || path == "/api/auth/me"
         // Dashboard read endpoints — allow unauthenticated so the SPA can
         // render before the user enters their API key.
         || path == "/api/models"
@@ -123,65 +166,93 @@ pub async fn auth(
         return next.run(request).await;
     }
 
-    // Check Authorization: Bearer <token> header, then fallback to X-API-Key
-    let bearer_token = request
+    // Extract token from headers or query params
+    let token = extract_token(&request);
+
+    if let Some(token) = token {
+        // 1) Check against global API key (constant-time)
+        if has_global_key {
+            use subtle::ConstantTimeEq;
+            let global_match = if token.len() == config.global_api_key.len() {
+                token
+                    .as_bytes()
+                    .ct_eq(config.global_api_key.as_bytes())
+                    .into()
+            } else {
+                false
+            };
+
+            if global_match {
+                request.extensions_mut().insert(AuthenticatedUser {
+                    name: "admin".to_string(),
+                    role: "owner".to_string(),
+                });
+                return next.run(request).await;
+            }
+        }
+
+        // 2) Check against per-user API key hashes
+        if has_user_keys {
+            if let Some(user) = config.kernel.auth.authenticate_by_api_key(token) {
+                request.extensions_mut().insert(AuthenticatedUser {
+                    name: user.name.clone(),
+                    role: format!("{}", user.role),
+                });
+                return next.run(request).await;
+            }
+        }
+
+        // Token provided but not matching anything
+        return Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .header("www-authenticate", "Bearer")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                serde_json::json!({"error": "Invalid API key"}).to_string(),
+            ))
+            .unwrap_or_default();
+    }
+
+    // No token provided
+    Response::builder()
+        .status(StatusCode::UNAUTHORIZED)
+        .header("www-authenticate", "Bearer")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            serde_json::json!({"error": "Missing Authorization: Bearer <api_key> header"})
+                .to_string(),
+        ))
+        .unwrap_or_default()
+}
+
+/// Extract Bearer token from request headers or query params.
+fn extract_token<'a>(request: &'a Request<Body>) -> Option<&'a str> {
+    // Check Authorization: Bearer <token> header
+    let bearer = request
         .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
 
-    let api_token = bearer_token.or_else(|| {
-        request
-            .headers()
-            .get("x-api-key")
-            .and_then(|v| v.to_str().ok())
-    });
-
-    // SECURITY: Use constant-time comparison to prevent timing attacks.
-    let header_auth = api_token.map(|token| {
-        use subtle::ConstantTimeEq;
-        if token.len() != api_key.len() {
-            return false;
-        }
-        token.as_bytes().ct_eq(api_key.as_bytes()).into()
-    });
-
-    // Also check ?token= query parameter (for EventSource/SSE clients that
-    // cannot set custom headers, same approach as WebSocket auth).
-    let query_token = request
-        .uri()
-        .query()
-        .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("token=")));
-
-    // SECURITY: Use constant-time comparison to prevent timing attacks.
-    let query_auth = query_token.map(|token| {
-        use subtle::ConstantTimeEq;
-        if token.len() != api_key.len() {
-            return false;
-        }
-        token.as_bytes().ct_eq(api_key.as_bytes()).into()
-    });
-
-    // Accept if either auth method matches
-    if header_auth == Some(true) || query_auth == Some(true) {
-        return next.run(request).await;
+    if bearer.is_some() {
+        return bearer;
     }
 
-    // Determine error message: was a credential provided but wrong, or missing entirely?
-    let credential_provided = header_auth.is_some() || query_auth.is_some();
-    let error_msg = if credential_provided {
-        "Invalid API key"
-    } else {
-        "Missing Authorization: Bearer <api_key> header"
-    };
+    // Fallback to X-API-Key header
+    let api_key = request
+        .headers()
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok());
 
-    Response::builder()
-        .status(StatusCode::UNAUTHORIZED)
-        .header("www-authenticate", "Bearer")
-        .body(Body::from(
-            serde_json::json!({"error": error_msg}).to_string(),
-        ))
-        .unwrap_or_default()
+    if api_key.is_some() {
+        return api_key;
+    }
+
+    // Fallback to ?token= query parameter (for SSE/WebSocket clients)
+    request
+        .uri()
+        .query()
+        .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("token=")))
 }
 
 /// Security headers middleware — applied to ALL API responses.

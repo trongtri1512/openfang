@@ -100,6 +100,8 @@ pub struct AuthManager {
     users: DashMap<UserId, UserIdentity>,
     /// Channel binding index: "channel_type:platform_id" → UserId.
     channel_index: DashMap<String, UserId>,
+    /// API key hash index: "sha256_hex" → UserId.
+    api_key_index: DashMap<String, UserId>,
 }
 
 impl AuthManager {
@@ -108,6 +110,7 @@ impl AuthManager {
         let manager = Self {
             users: DashMap::new(),
             channel_index: DashMap::new(),
+            api_key_index: DashMap::new(),
         };
 
         for config in user_configs {
@@ -127,10 +130,22 @@ impl AuthManager {
                 manager.channel_index.insert(key, user_id);
             }
 
+            // Index API key hash
+            if let Some(ref hash) = config.api_key_hash {
+                let normalized = hash
+                    .strip_prefix("sha256:")
+                    .unwrap_or(hash)
+                    .to_lowercase();
+                if !normalized.is_empty() {
+                    manager.api_key_index.insert(normalized, user_id);
+                }
+            }
+
             info!(
                 user = %config.name,
                 role = %role,
                 bindings = config.channel_bindings.len(),
+                has_api_key = config.api_key_hash.is_some(),
                 "Registered user"
             );
         }
@@ -145,6 +160,22 @@ impl AuthManager {
     pub fn identify(&self, channel_type: &str, platform_id: &str) -> Option<UserId> {
         let key = format!("{channel_type}:{platform_id}");
         self.channel_index.get(&key).map(|r| *r.value())
+    }
+
+    /// Authenticate a user by their raw API key.
+    ///
+    /// Hashes the provided key with SHA-256 and matches against registered
+    /// users' `api_key_hash` values. Returns the user identity if matched.
+    pub fn authenticate_by_api_key(&self, raw_key: &str) -> Option<UserIdentity> {
+        use sha2::{Digest, Sha256};
+
+        let mut hasher = Sha256::new();
+        hasher.update(raw_key.as_bytes());
+        let hash_hex = hex::encode(hasher.finalize());
+
+        self.api_key_index
+            .get(&hash_hex)
+            .and_then(|user_id| self.users.get(user_id.value()).map(|u| u.value().clone()))
     }
 
     /// Get a user's identity by their UserId.

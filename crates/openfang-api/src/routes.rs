@@ -4811,6 +4811,98 @@ pub async fn update_agent(
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Authentication endpoints
+// ---------------------------------------------------------------------------
+
+/// POST /api/auth/login — Authenticate with an API key and receive user info.
+///
+/// Request: `{ "api_key": "secret-key" }`
+/// Response: `{ "authenticated": true, "user": "Alice", "role": "owner" }`
+pub async fn auth_login(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let api_key = body
+        .get("api_key")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+
+    if api_key.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "api_key is required"})),
+        );
+    }
+
+    // 1) Check against global API key
+    let global_key = &state.kernel.config.api_key;
+    if !global_key.is_empty() {
+        use subtle::ConstantTimeEq;
+        let matches = if api_key.len() == global_key.len() {
+            api_key.as_bytes().ct_eq(global_key.as_bytes()).into()
+        } else {
+            false
+        };
+        if matches {
+            return (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "authenticated": true,
+                    "user": "admin",
+                    "role": "owner",
+                    "token": api_key,
+                })),
+            );
+        }
+    }
+
+    // 2) Check against per-user API key hashes
+    if let Some(user) = state.kernel.auth.authenticate_by_api_key(api_key) {
+        return (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "authenticated": true,
+                "user": user.name,
+                "role": format!("{}", user.role),
+                "token": api_key,
+            })),
+        );
+    }
+
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({
+            "authenticated": false,
+            "error": "Invalid API key",
+        })),
+    )
+}
+
+/// GET /api/auth/me — Get the currently authenticated user identity.
+///
+/// Returns the user info injected by the auth middleware, or anonymous if no auth.
+pub async fn auth_me(
+    request: axum::http::Request<axum::body::Body>,
+) -> impl IntoResponse {
+    if let Some(user) = request
+        .extensions()
+        .get::<crate::middleware::AuthenticatedUser>()
+    {
+        Json(serde_json::json!({
+            "authenticated": true,
+            "user": user.name,
+            "role": user.role,
+        }))
+    } else {
+        Json(serde_json::json!({
+            "authenticated": false,
+            "user": "anonymous",
+            "role": "viewer",
+        }))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Security dashboard endpoint
 // ---------------------------------------------------------------------------
 

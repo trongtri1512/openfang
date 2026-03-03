@@ -102,7 +102,6 @@ pub async fn build_router(
             .allow_headers(tower_http::cors::Any)
     };
 
-    let api_key = state.kernel.config.api_key.clone();
     let gcra_limiter = rate_limiter::create_rate_limiter();
 
     let app = Router::new()
@@ -665,8 +664,14 @@ pub async fn build_router(
             "/v1/models",
             axum::routing::get(crate::openai_compat::list_models),
         )
+        // Auth endpoints
+        .route("/api/auth/login", axum::routing::post(routes::auth_login))
+        .route("/api/auth/me", axum::routing::get(routes::auth_me))
         .layer(axum::middleware::from_fn_with_state(
-            api_key,
+            middleware::AuthConfig {
+                global_api_key: state.kernel.config.api_key.clone(),
+                kernel: state.kernel.clone(),
+            },
             middleware::auth,
         ))
         .layer(axum::middleware::from_fn_with_state(
