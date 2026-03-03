@@ -491,6 +491,9 @@ impl OpenFangKernel {
         if let Ok(listen) = std::env::var("OPENFANG_LISTEN") {
             config.api_listen = listen;
         }
+        if let Ok(key) = std::env::var("OPENFANG_API_KEY") {
+            config.api_key = key;
+        }
 
         // Clamp configuration bounds to prevent zero-value or unbounded misconfigs
         config.clamp_bounds();
