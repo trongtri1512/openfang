@@ -88,10 +88,7 @@ impl ZaloAuth {
     pub fn new(credentials: ZaloCredentials) -> Self {
         Self {
             credentials,
-            client: reqwest::Client::builder()
-                .cookie_store(true)
-                .build()
-                .unwrap_or_default(),
+            client: reqwest::Client::new(),
             login_version: None,
         }
     }
