@@ -655,6 +655,47 @@ pub async fn build_router(
         )
         // MCP HTTP endpoint (exposes MCP protocol over HTTP)
         .route("/mcp", axum::routing::post(routes::mcp_http))
+        // Tenant management endpoints
+        .route(
+            "/api/tenants",
+            axum::routing::get(crate::tenants::list_tenants)
+                .post(crate::tenants::create_tenant),
+        )
+        .route(
+            "/api/tenants/{id}",
+            axum::routing::get(crate::tenants::get_tenant)
+                .put(crate::tenants::update_tenant)
+                .delete(crate::tenants::delete_tenant),
+        )
+        .route(
+            "/api/tenants/{id}/restart",
+            axum::routing::post(crate::tenants::restart_tenant),
+        )
+        .route(
+            "/api/tenants/{id}/stop",
+            axum::routing::post(crate::tenants::stop_tenant),
+        )
+        .route(
+            "/api/tenants/{id}/stats",
+            axum::routing::get(crate::tenants::tenant_stats),
+        )
+        .route(
+            "/api/tenants/{id}/logs",
+            axum::routing::get(crate::tenants::tenant_logs),
+        )
+        .route(
+            "/api/tenants/{id}/access-link",
+            axum::routing::post(crate::tenants::regenerate_access_link),
+        )
+        .route(
+            "/api/tenants/{id}/members",
+            axum::routing::get(crate::tenants::list_members)
+                .post(crate::tenants::add_member),
+        )
+        .route(
+            "/api/tenants/{id}/members/{email}",
+            axum::routing::delete(crate::tenants::remove_member),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

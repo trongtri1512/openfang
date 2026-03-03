@@ -11,6 +11,7 @@ pub mod routes;
 pub mod server;
 pub mod stream_chunker;
 pub mod stream_dedup;
+pub mod tenants;
 pub mod types;
 pub mod webchat;
 pub mod ws;
