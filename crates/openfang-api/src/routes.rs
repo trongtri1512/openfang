@@ -1717,15 +1717,15 @@ const CHANNEL_REGISTRY: &[ChannelMeta] = &[
     ChannelMeta {
         name: "zalo", display_name: "Zalo", icon: "ZL",
         description: "Zalo personal messaging via openzca CLI",
-        category: "messaging", difficulty: "Easy", setup_time: "~2 min",
-        quick_setup: "Login with QR code via openzca — no developer account needed",
-        setup_type: "qr",
+        category: "messaging", difficulty: "Easy", setup_time: "~3 min",
+        quick_setup: "Login via openzca CLI — no developer account needed",
+        setup_type: "form",
         fields: &[
             ChannelField { key: "cli_path", label: "openzca CLI Path", field_type: FieldType::Text, env_var: None, required: false, placeholder: "openzca", advanced: true },
             ChannelField { key: "profile", label: "Profile Name", field_type: FieldType::Text, env_var: None, required: false, placeholder: "default", advanced: true },
-            ChannelField { key: "default_agent", label: "Default Agent", field_type: FieldType::Text, env_var: None, required: false, placeholder: "assistant", advanced: true },
+            ChannelField { key: "default_agent", label: "Default Agent", field_type: FieldType::Text, env_var: None, required: false, placeholder: "assistant", advanced: false },
         ],
-        setup_steps: &["Install openzca: npm install -g openzca@latest", "Run: openzca auth login", "Scan the QR code with Zalo on your phone"],
+        setup_steps: &["1. Install: npm install -g openzca@latest", "2. Login: openzca auth login (scan QR with Zalo)", "3. Click Save below to enable the channel"],
         config_template: "[channels.zalo]\ncli_path = \"openzca\"",
     },
 ];
