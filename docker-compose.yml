@@ -21,6 +21,7 @@ services:
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
+      - OPENFANG_API_KEY=2vopelprpgkiml1za7pnwov7jy6rcona
     restart: unless-stopped
 
 volumes:
