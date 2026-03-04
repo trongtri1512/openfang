@@ -724,3 +724,314 @@ pub async fn tenant_usage(
     })).into_response()
 }
 
+// ---------------------------------------------------------------------------
+// Magic Access Link — public tenant WebChat
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct AccessQuery {
+    pub t: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AccessChatRequest {
+    pub message: String,
+    #[serde(default)]
+    pub history: Vec<serde_json::Value>,
+}
+
+/// Map a provider name to its OpenAI-compatible base URL.
+fn provider_base_url(provider: &str) -> &'static str {
+    match provider {
+        "openai" => "https://api.openai.com/v1",
+        "anthropic" => "https://api.anthropic.com/v1",
+        "groq" => "https://api.groq.com/openai/v1",
+        "openrouter" => "https://openrouter.ai/api/v1",
+        "deepseek" => "https://api.deepseek.com/v1",
+        "together" => "https://api.together.xyz/v1",
+        "mistral" => "https://api.mistral.ai/v1",
+        "fireworks" => "https://api.fireworks.ai/inference/v1",
+        "gemini" | "google" => "https://generativelanguage.googleapis.com/v1beta/openai",
+        "ollama" => "http://host.docker.internal:11434/v1",
+        "xai" => "https://api.x.ai/v1",
+        "perplexity" => "https://api.perplexity.ai",
+        "cohere" => "https://api.cohere.ai/compatibility/v1",
+        "cerebras" => "https://api.cerebras.ai/v1",
+        "sambanova" => "https://api.sambanova.ai/v1",
+        "moonshot" | "kimi" => "https://api.moonshot.cn/v1",
+        "qwen" | "dashscope" => "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "volcengine" => "https://ark.cn-beijing.volces.com/api/v3",
+        _ => "https://api.openai.com/v1", // fallback
+    }
+}
+
+/// GET /access/?t=<token> — Serve lightweight WebChat page for a tenant.
+pub async fn tenant_access_page(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<AccessQuery>,
+) -> impl IntoResponse {
+    let token = match params.t {
+        Some(t) if !t.is_empty() => t,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                axum::response::Html(
+                    r#"<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0"><h2>⚠️ Missing access token. Please use the link provided by your admin.</h2></body></html>"#.to_string()
+                ),
+            ).into_response();
+        }
+    };
+
+    let data = load_tenants(&state);
+    let tenant = data.tenants.iter().find(|t| t.access_token == token);
+
+    match tenant {
+        None => {
+            (
+                StatusCode::FORBIDDEN,
+                axum::response::Html(
+                    r#"<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0"><h2>🔒 Invalid or expired access link. Please contact your admin for a new link.</h2></body></html>"#.to_string()
+                ),
+            ).into_response()
+        }
+        Some(tenant) => {
+            let tenant_name = tenant.name.replace('"', "&quot;").replace('<', "&lt;");
+            let tenant_model = tenant.model.replace('"', "&quot;");
+            let html = format!(r##"<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{tenant_name} — AI Chat</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+:root{{--bg:#0f0f23;--surface:#1a1a2e;--surface2:#16213e;--border:#2a2a4a;--text:#e0e0e0;--text-dim:#8888aa;--primary:#6c63ff;--primary-hover:#5a52d5;--accent:#00d4aa;--msg-user:#1e3a5f;--msg-bot:#1a1a2e}}
+body{{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}}
+.header{{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}}
+.header .logo{{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}}
+.header h1{{font-size:1rem;font-weight:600}}
+.header .model{{font-size:0.75rem;color:var(--text-dim);background:var(--surface2);padding:2px 8px;border-radius:4px}}
+.chat-area{{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}}
+.msg{{max-width:80%;padding:12px 16px;border-radius:12px;line-height:1.5;font-size:0.9rem;word-wrap:break-word;white-space:pre-wrap}}
+.msg.user{{align-self:flex-end;background:var(--msg-user);border-bottom-right-radius:4px}}
+.msg.bot{{align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:4px}}
+.msg.bot .thinking{{color:var(--text-dim);font-style:italic}}
+.input-area{{background:var(--surface);border-top:1px solid var(--border);padding:12px 20px;display:flex;gap:10px;flex-shrink:0}}
+.input-area textarea{{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:0.9rem;font-family:inherit;resize:none;outline:none;min-height:44px;max-height:120px}}
+.input-area textarea:focus{{border-color:var(--primary)}}
+.input-area button{{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:0.9rem;cursor:pointer;font-weight:600;transition:background 0.2s}}
+.input-area button:hover{{background:var(--primary-hover)}}
+.input-area button:disabled{{opacity:0.5;cursor:not-allowed}}
+.typing{{display:flex;gap:4px;padding:4px 0}}.typing span{{width:6px;height:6px;background:var(--text-dim);border-radius:50%;animation:bounce 1.4s infinite}}.typing span:nth-child(2){{animation-delay:0.2s}}.typing span:nth-child(3){{animation-delay:0.4s}}
+@keyframes bounce{{0%,80%,100%{{transform:translateY(0)}}40%{{transform:translateY(-8px)}}}}
+@media(max-width:600px){{.msg{{max-width:90%}}.header h1{{font-size:0.9rem}}}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">🤖</div>
+  <h1>{tenant_name}</h1>
+  <span class="model">{tenant_model}</span>
+</div>
+<div class="chat-area" id="chatArea">
+  <div class="msg bot">Xin chào! Tôi là trợ lý AI của <strong>{tenant_name}</strong>. Bạn cần tôi giúp gì?</div>
+</div>
+<div class="input-area">
+  <textarea id="msgInput" placeholder="Nhập tin nhắn..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){{event.preventDefault();sendMsg()}}"></textarea>
+  <button id="sendBtn" onclick="sendMsg()">Gửi</button>
+</div>
+<script>
+const TOKEN="{token}";
+const chatArea=document.getElementById('chatArea');
+const msgInput=document.getElementById('msgInput');
+const sendBtn=document.getElementById('sendBtn');
+let history=[];
+function addMsg(role,text){{
+  const d=document.createElement('div');
+  d.className='msg '+(role==='user'?'user':'bot');
+  d.textContent=text;
+  chatArea.appendChild(d);
+  chatArea.scrollTop=chatArea.scrollHeight;
+  return d;
+}}
+function showTyping(){{
+  const d=document.createElement('div');
+  d.className='msg bot';d.id='typing';
+  d.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  chatArea.appendChild(d);chatArea.scrollTop=chatArea.scrollHeight;
+}}
+function hideTyping(){{const e=document.getElementById('typing');if(e)e.remove()}}
+async function sendMsg(){{
+  const text=msgInput.value.trim();
+  if(!text)return;
+  msgInput.value='';sendBtn.disabled=true;
+  addMsg('user',text);
+  history.push({{role:'user',content:text}});
+  showTyping();
+  try{{
+    const res=await fetch('/api/access/chat?t='+TOKEN,{{
+      method:'POST',
+      headers:{{'Content-Type':'application/json'}},
+      body:JSON.stringify({{message:text,history:history.slice(-20)}})
+    }});
+    hideTyping();
+    const data=await res.json();
+    if(data.error){{addMsg('bot','⚠️ '+data.error)}}
+    else{{addMsg('bot',data.reply||'(no response)');history.push({{role:'assistant',content:data.reply||''}})}}
+  }}catch(e){{hideTyping();addMsg('bot','⚠️ Connection error: '+e.message)}}
+  sendBtn.disabled=false;msgInput.focus();
+}}
+msgInput.addEventListener('input',function(){{this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'}});
+msgInput.focus();
+</script>
+</body></html>"##);
+
+            (
+                [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+                axum::response::Html(html),
+            ).into_response()
+        }
+    }
+}
+
+/// POST /api/access/chat?t=<token> — Proxy chat message to tenant's LLM.
+pub async fn tenant_access_chat(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<AccessQuery>,
+    Json(body): Json<AccessChatRequest>,
+) -> impl IntoResponse {
+    // 1. Verify access token
+    let token = match params.t {
+        Some(t) if !t.is_empty() => t,
+        _ => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "Missing access token"})),
+            ).into_response();
+        }
+    };
+
+    let data = load_tenants(&state);
+    let tenant = match data.tenants.iter().find(|t| t.access_token == token) {
+        Some(t) => t.clone(),
+        None => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Invalid or expired access token"})),
+            ).into_response();
+        }
+    };
+
+    // 2. Check quota
+    if tenant.messages_today >= tenant.max_messages_per_day && tenant.max_messages_per_day < u32::MAX {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({"error": "Daily message limit reached. Please try again tomorrow."})),
+        ).into_response();
+    }
+
+    // 3. Get API key for the tenant
+    let api_key = match &tenant.api_key {
+        Some(key) if !key.is_empty() => key.clone(),
+        _ => {
+            // Fallback: try env var for the provider
+            let env_key = match tenant.provider.as_str() {
+                "openai" => "OPENAI_API_KEY",
+                "anthropic" => "ANTHROPIC_API_KEY",
+                "groq" => "GROQ_API_KEY",
+                "openrouter" => "OPENROUTER_API_KEY",
+                "deepseek" => "DEEPSEEK_API_KEY",
+                "gemini" | "google" => "GEMINI_API_KEY",
+                "ollama" => "OLLAMA_API_KEY",
+                _ => "OPENAI_API_KEY",
+            };
+            std::env::var(env_key).unwrap_or_default()
+        }
+    };
+
+    if api_key.is_empty() && tenant.provider != "ollama" {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "No API key configured for this tenant. Please contact your admin."})),
+        ).into_response();
+    }
+
+    // 4. Build messages for LLM
+    let base_url = provider_base_url(&tenant.provider);
+    let mut messages = vec![
+        serde_json::json!({"role": "system", "content": format!(
+            "You are a helpful AI assistant for {}. Answer concisely and helpfully in the same language as the user.",
+            tenant.name
+        )}),
+    ];
+    // Add conversation history (last 20 messages)
+    for msg in &body.history {
+        messages.push(msg.clone());
+    }
+    messages.push(serde_json::json!({"role": "user", "content": body.message}));
+
+    // 5. Call LLM via OpenAI-compatible API
+    let client = reqwest::Client::new();
+    let url = format!("{}/chat/completions", base_url);
+
+    let mut req_builder = client
+        .post(&url)
+        .header("Content-Type", "application/json");
+
+    if !api_key.is_empty() {
+        req_builder = req_builder.header("Authorization", format!("Bearer {}", api_key));
+    }
+
+    let llm_body = serde_json::json!({
+        "model": tenant.model,
+        "messages": messages,
+        "max_tokens": 2048,
+        "temperature": tenant.temperature,
+    });
+
+    match req_builder.json(&llm_body).send().await {
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let err_text = resp.text().await.unwrap_or_default();
+                warn!(
+                    tenant = %tenant.name,
+                    provider = %tenant.provider,
+                    status = %status,
+                    "LLM API error"
+                );
+                return Json(serde_json::json!({
+                    "error": format!("LLM provider error ({}): {}", status, err_text)
+                })).into_response();
+            }
+
+            match resp.json::<serde_json::Value>().await {
+                Ok(json) => {
+                    let reply = json["choices"][0]["message"]["content"]
+                        .as_str()
+                        .unwrap_or("(empty response)")
+                        .to_string();
+
+                    // Increment message counter
+                    let mut data = load_tenants(&state);
+                    if let Some(t) = data.tenants.iter_mut().find(|t| t.access_token == token) {
+                        t.messages_today = t.messages_today.saturating_add(1);
+                        let _ = save_tenants(&state, &data);
+                    }
+
+                    Json(serde_json::json!({"reply": reply})).into_response()
+                }
+                Err(e) => {
+                    warn!(tenant = %tenant.name, error = %e, "Failed to parse LLM response");
+                    Json(serde_json::json!({"error": "Failed to parse LLM response"})).into_response()
+                }
+            }
+        }
+        Err(e) => {
+            warn!(tenant = %tenant.name, error = %e, "Failed to connect to LLM provider");
+            Json(serde_json::json!({
+                "error": format!("Failed to connect to LLM provider: {}", e)
+            })).into_response()
+        }
+    }
+}

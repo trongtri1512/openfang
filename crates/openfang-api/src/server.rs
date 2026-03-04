@@ -714,6 +714,15 @@ pub async fn build_router(
             "/api/tenants/{id}/usage",
             axum::routing::get(crate::tenants::tenant_usage),
         )
+        // Tenant magic access link (public, auth via ?t= query param)
+        .route(
+            "/access/",
+            axum::routing::get(crate::tenants::tenant_access_page),
+        )
+        .route(
+            "/api/access/chat",
+            axum::routing::post(crate::tenants::tenant_access_chat),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

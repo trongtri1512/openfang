@@ -162,6 +162,9 @@ pub async fn auth(
         || path == "/api/logs/stream"
         || path.starts_with("/api/cron/")
         || path.starts_with("/api/providers/github-copilot/oauth/")
+        // Tenant magic access link — auth via ?t= query param
+        || path == "/access/"
+        || path == "/api/access/chat"
     {
         return next.run(request).await;
     }
