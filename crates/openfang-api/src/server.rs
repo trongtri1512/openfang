@@ -812,6 +812,10 @@ pub async fn build_router(
             axum::routing::get(crate::portal::portal_page),
         )
         .route(
+            "/portal/{id}",
+            axum::routing::get(crate::portal::portal_page_with_id),
+        )
+        .route(
             "/api/portal/login",
             axum::routing::post(crate::portal::portal_login),
         )
@@ -885,6 +889,18 @@ pub async fn build_router(
         .route(
             "/api/portal/my/tenants",
             axum::routing::post(crate::portal::portal_create_my_tenant),
+        )
+        .route(
+            "/api/portal/system/channels",
+            axum::routing::get(crate::portal::portal_system_channels),
+        )
+        .route(
+            "/api/portal/system/providers",
+            axum::routing::get(crate::portal::portal_system_providers),
+        )
+        .route(
+            "/api/portal/system/models",
+            axum::routing::get(crate::portal::portal_system_models),
         )
         // OpenAI-compatible API
         .route(

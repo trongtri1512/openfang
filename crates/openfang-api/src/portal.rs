@@ -677,6 +677,32 @@ pub async fn portal_create_my_tenant(State(state): State<Arc<AppState>>, headers
     Json(serde_json::json!({"ok":true,"tenant_id":tid})).into_response()
 }
 
+// ---------------------------------------------------------------------------
+// Portal: System API Proxies (channels, providers, models)
+// ---------------------------------------------------------------------------
+
+/// GET /api/portal/system/channels - Proxy to /api/channels.
+pub async fn portal_system_channels(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    crate::routes::list_channels(State(state)).await.into_response()
+}
+
+/// GET /api/portal/system/providers - Proxy to /api/providers.
+pub async fn portal_system_providers(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    crate::routes::list_providers(State(state)).await.into_response()
+}
+
+/// GET /api/portal/system/models - Proxy to /api/models with optional ?provider= filter.
+pub async fn portal_system_models(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap, query: axum::extract::Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    crate::routes::list_models(State(state), query).await.into_response()
+}
+
+/// Serve portal page for both /portal/ and /portal/{id} (permalink).
+pub async fn portal_page_with_id() -> impl IntoResponse {
+    ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], axum::response::Html(PORTAL_HTML))
+}
 
 
 const PORTAL_HTML: &str = r##"<!DOCTYPE html>
@@ -945,7 +971,7 @@ async function showDash(){document.getElementById('loginView').style.display='no
 async function loadT(){const d=await api('GET','/api/portal/tenants');T=d.tenants||[]}
 
 // Navigation
-function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el.classList.remove('active'));document.getElementById('headerActions').innerHTML='';
+function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el.classList.remove('active'));document.getElementById('headerActions').innerHTML='';history.pushState({page:p},'','/portal/');
 if(p==='tenants'){document.querySelector('.sbn .si:first-child').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg> Tenants';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateTenantModal()">+ Create Tenant</button>';renderList()}
 else if(p==='members'){document.getElementById('membersNav').classList.add('active');document.getElementById('pageTitle').textContent='Members';renderMembers()}
 else if(p==='users'){document.getElementById('usersNav').classList.add('active');document.getElementById('pageTitle').textContent='Users';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateUserModal()">+ Create User</button>';renderUsers()}
@@ -963,7 +989,7 @@ function filterT(){const q=(document.getElementById('si2')?.value||'').toLowerCa
 
 // Tenant Detail
 async function openDetail(id){
-  const d=await api('GET','/api/portal/tenants/'+id);if(d.error)return;D=d;CTab='overview';renderDetailPage();
+  const d=await api('GET','/api/portal/tenants/'+id);if(d.error)return;D=d;CTab='overview';history.pushState({page:'detail',id:id},d.name,'/portal/'+id);renderDetailPage();
 }
 function renderDetailPage(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
@@ -972,7 +998,7 @@ function renderDetailPage(){
   document.getElementById('headerActions').innerHTML=ha;
   renderDetailBody();
 }
-function renderDetailBody(){
+async function renderDetailBody(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
   const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> &gt; ${t.name}</div>`;
   const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> &middot; <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
@@ -980,11 +1006,12 @@ function renderDetailBody(){
   const tabsHtml=`<div class="tabs">${TABS.map(tb=>`<div class="tab${CTab===tb.toLowerCase()?' active':''}" onclick="CTab='${tb.toLowerCase()}';renderDetailBody()">${tb}</div>`).join('')}</div>`;
   let body='';
   if(CTab==='overview') body=renderOverview(t);
-  else if(CTab==='config') body=renderConfig(t);
-  else if(CTab==='channels') body=renderChannels(t);
+  else if(CTab==='config') body=await renderConfig(t);
+  else if(CTab==='channels') body=await renderChannels(t);
   else if(CTab==='usage') body=renderUsage(t);
   else if(CTab==='members') body=renderMembersTab(t,isAdmin);
   document.getElementById('mainContent').innerHTML=bc+header+tabsHtml+body;
+  if(CTab==='config') loadModelsForProvider();
 }
 
 // Tab: Overview
@@ -1014,13 +1041,16 @@ function renderOverview(t){
 }
 
 // Tab: Config
-function renderConfig(t){
+async function renderConfig(t){
   const isAdmin=S.role==='admin';
   const dis=isAdmin?'':'disabled';
-  const providers=['anthropic','openai','groq','deepseek','openrouter','together','mistral','fireworks','gemini','ollama','vllm','lmstudio'];
-  const provOpts=providers.map(p=>`<option value="${p}"${t.provider===p?' selected':''}>${p}</option>`).join('');
+  // Load providers from system API
+  let provOpts=`<option value="${t.provider}">${t.provider}</option>`;
+  try{const pd=await api('GET','/api/portal/system/providers');const provs=pd.providers||[];
+    provOpts=provs.map(p=>`<option value="${p.id}"${t.provider===p.id?' selected':''}>${p.display_name}${p.auth_status==='configured'?' [OK]':p.auth_status==='not_required'?' [Local]':' [No Key]'}</option>`).join('');
+  }catch(e){}
   let html=`<div class="config-section"><h3>AI Provider</h3>
-    <div class="config-row"><div class="fg"><label>Provider</label><select id="cfgProvider" ${dis}>${provOpts}</select></div><div class="fg"><label>Model</label><input type="text" id="cfgModel" value="${t.model||''}" ${dis}></div></div>
+    <div class="config-row"><div class="fg"><label>Provider</label><select id="cfgProvider" ${dis} onchange="loadModelsForProvider()">${provOpts}</select></div><div class="fg"><label>Model</label><select id="cfgModel" ${dis}><option value="${t.model||''}">${t.model||'Select model'}</option></select></div></div>
     <div class="config-row"><div class="fg"><label>Temperature</label><input type="text" id="cfgTemp" value="${t.temperature}" ${dis} style="width:120px"></div><div class="fg"><label>API Key</label><input type="password" id="cfgApiKey" value="${t.api_key||''}" placeholder="Provider API key" ${dis}></div></div>`;
   if(isAdmin){html+=`<div style="margin-top:12px"><button class="btn-o" onclick="saveConfig()">Save Config</button></div>`}
   else{html+=`<div class="warn">Configuration changes are managed by the system administrator.</div>`}
@@ -1031,18 +1061,56 @@ function renderConfig(t){
   </div>`;
   return html;
 }
+async function loadModelsForProvider(){
+  const prov=document.getElementById('cfgProvider').value;
+  const sel=document.getElementById('cfgModel');
+  sel.innerHTML='<option>Loading...</option>';
+  try{const d=await api('GET','/api/portal/system/models?provider='+prov);const ms=d.models||[];
+    sel.innerHTML=ms.map(m=>`<option value="${m.id}"${D&&D.model===m.id?' selected':''}>${m.display_name} (${m.id})</option>`).join('');
+    if(ms.length===0)sel.innerHTML='<option value="">No models found</option>';
+  }catch(e){sel.innerHTML='<option value="">Error loading models</option>'}
+}
 
 // Tab: Channels
-function renderChannels(t){
+async function renderChannels(t){
   const isAdmin=S.role==='admin';
-  const ch=t.channels||[];
-  const addBtn=isAdmin?`<button class="btn-o" onclick="openModal('addChannelModal')">+ Add Channel</button>`:'';
-  const cnt=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><h3 style="font-size:1rem;font-weight:700">Channels</h3><p style="font-size:.8rem;color:var(--d)">${ch.length} / ${fmt(t.max_channels)} channels connected</p></div>${addBtn}</div>`;
-  if(ch.length===0){return cnt+`<div class="empty"><div class="empty-icon">(( ))</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`}
-  const rows=ch.map(c=>{const del=isAdmin?`<button class="btn-r" onclick="removeChannel('${c.name}')">Remove</button>`:'';
-    return `<tr><td style="text-transform:capitalize;font-weight:500">${c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td><span class="badge running">Active</span></td><td>${del}</td></tr>`}).join('');
-  return cnt+`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th>${isAdmin?'<th>Actions</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
+  const tenantCh=t.channels||[];
+  // Load system channels
+  let sysCh=[];
+  try{const d=await api('GET','/api/portal/system/channels');sysCh=d.channels||[]}catch(e){}
+  // Map tenant channels with system info
+  const addBtn=isAdmin?`<button class="btn-o" onclick="openAddSystemChannel()">+ Add Channel</button>`:'';
+  const cnt=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><h3 style="font-size:1rem;font-weight:700">Channels</h3><p style="font-size:.8rem;color:var(--d)">${tenantCh.length} / ${fmt(t.max_channels)} channels connected</p></div>${addBtn}</div>`;
+  // Active channels
+  let html=cnt;
+  if(tenantCh.length>0){
+    const rows=tenantCh.map(c=>{const sys=sysCh.find(s=>s.name===c.channel_type)||{};
+      const del=isAdmin?`<button class="btn-r" onclick="removeChannel('${c.name}')">Remove</button>`:'';
+      const status=sys.configured?'<span class="badge running">Configured</span>':'<span class="badge plan">Pending</span>';
+      return `<tr><td style="text-transform:capitalize;font-weight:500">${sys.display_name||c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td>${status}</td><td>${del}</td></tr>`}).join('');
+    html+=`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th>${isAdmin?'<th>Actions</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
+  } else {
+    html+=`<div class="empty"><div class="empty-icon">(( ))</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`;
+  }
+  // Available system channels
+  if(isAdmin && sysCh.length>0){
+    html+=`<div style="margin-top:24px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">Available Channels (${sysCh.length})</h3>`;
+    const cats=[...new Set(sysCh.map(c=>c.category))];
+    cats.forEach(cat=>{
+      const chs=sysCh.filter(c=>c.category===cat);
+      html+=`<div style="margin-bottom:12px"><div style="font-size:.8rem;font-weight:600;color:var(--d);text-transform:uppercase;margin-bottom:6px">${cat} (${chs.length})</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:8px">`;
+      chs.forEach(c=>{const connected=tenantCh.some(tc=>tc.channel_type===c.name);
+        const badge=connected?'running':c.configured?'plan':'stopped';
+        const label=connected?'Connected':c.configured?'Available':'Not Configured';
+        html+=`<div style="padding:6px 12px;background:var(--bg2);border:1px solid var(--b);border-radius:8px;font-size:.8rem;display:flex;align-items:center;gap:6px"><span style="font-weight:500">${c.display_name}</span><span class="badge ${badge}" style="font-size:.65rem;padding:2px 6px">${label}</span>`;if(!connected&&isAdmin)html+=`<button class="btn-g" style="padding:2px 8px;font-size:.7rem" onclick="addSystemChannel('${c.name}','${c.display_name}')">Add</button>`;html+=`</div>`;
+      });html+=`</div></div>`;
+    });html+=`</div>`;
+  }
+  return html;
 }
+function openAddSystemChannel(){CTab='channels';renderDetailBody()}
+async function addSystemChannel(type,name){const body={channel_type:type,name:name};const d=await api('POST','/api/portal/tenants/'+D.id+'/channels',body);if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 
 // Tab: Usage
 function renderUsage(t){
@@ -1120,7 +1188,12 @@ async function deletePlan(id){if(!confirm('Delete plan "'+id+'"?'))return;const 
 function openCreateTenantModal(){openModal('createTenantModal')}
 async function doCreateMyTenant(){const name=document.getElementById('ctName').value.trim();if(!name){alert('Tenant name is required');return}const body={name,provider:document.getElementById('ctProvider').value,model:document.getElementById('ctModel').value};const d=await api('POST','/api/portal/my/tenants',body);if(d.ok){closeModal('createTenantModal');document.getElementById('ctName').value='';await loadT();showPage('tenants')}else{alert(d.error||'Failed')}}
 
-// Init
-(function(){const s=localStorage.getItem('ps');if(s){try{S=JSON.parse(s);showDash()}catch(e){localStorage.removeItem('ps')}}})();
+// Init + Permalink
+window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});
+(function(){const s=localStorage.getItem('ps');if(s){try{S=JSON.parse(s);
+  // Check if URL has tenant ID (permalink)
+  const m=location.pathname.match(/\/portal\/([a-f0-9-]+)/i);
+  if(m){showDash().then(()=>openDetail(m[1]))}else{showDash()}
+}catch(e){localStorage.removeItem('ps')}}})();
 </script>
 </body></html>"##;
