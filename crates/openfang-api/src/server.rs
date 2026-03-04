@@ -906,6 +906,18 @@ pub async fn build_router(
             "/api/portal/system/models",
             axum::routing::get(crate::portal::portal_system_models),
         )
+        .route(
+            "/api/portal/system/skills",
+            axum::routing::get(crate::portal::portal_system_skills),
+        )
+        .route(
+            "/api/portal/system/hands",
+            axum::routing::get(crate::portal::portal_system_hands),
+        )
+        .route(
+            "/api/portal/tenants/{id}/agent",
+            axum::routing::put(crate::portal::portal_update_agent),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

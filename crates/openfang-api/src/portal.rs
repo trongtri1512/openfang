@@ -727,6 +727,9 @@ pub async fn portal_create_my_tenant(State(state): State<Arc<AppState>>, headers
         version: format!("openfang-{}", env!("CARGO_PKG_VERSION")),
         api_key: None,
         channels: vec![],
+        system_prompt: String::new(),
+        skills: vec![],
+        hands: vec![],
     };
 
     let tid = tenant.id.clone();
@@ -763,7 +766,39 @@ pub async fn portal_page_with_id() -> impl IntoResponse {
     ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], axum::response::Html(PORTAL_HTML))
 }
 
+/// GET /api/portal/system/skills - Proxy to /api/skills.
+pub async fn portal_system_skills(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    crate::routes::list_skills(State(state)).await.into_response()
+}
 
+/// GET /api/portal/system/hands - Proxy to /api/hands.
+pub async fn portal_system_hands(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    crate::routes::list_hands(State(state)).await.into_response()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PortalUpdateAgentRequest {
+    pub system_prompt: Option<String>,
+    pub skills: Option<Vec<String>>,
+    pub hands: Option<Vec<String>>,
+}
+
+/// PUT /api/portal/tenants/:id/agent - Update per-tenant agent config (system prompt, skills, hands).
+pub async fn portal_update_agent(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalUpdateAgentRequest>) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    if let Some(prompt) = req.system_prompt { tenant.system_prompt = prompt; }
+    if let Some(skills) = req.skills { tenant.skills = skills; }
+    if let Some(hands) = req.hands { tenant.hands = hands; }
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Updated agent config via portal");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
 const PORTAL_HTML: &str = r##"<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -1065,12 +1100,13 @@ async function renderDetailBody(){
   const canEdit=isAdmin||isOwner;
   const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> &gt; ${t.name}</div>`;
   const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> &middot; <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
-  const TABS=['Overview','Config','Channels','Usage','Members'];
+  const TABS=['Overview','Config','Channels','Agent','Usage','Members'];
   const tabsHtml=`<div class="tabs">${TABS.map(tb=>`<div class="tab${CTab===tb.toLowerCase()?' active':''}" onclick="CTab='${tb.toLowerCase()}';renderDetailBody()">${tb}</div>`).join('')}</div>`;
   let body='';
   if(CTab==='overview') body=renderOverview(t);
   else if(CTab==='config') body=await renderConfig(t);
   else if(CTab==='channels') body=await renderChannels(t);
+  else if(CTab==='agent') body=await renderAgent(t,canEdit);
   else if(CTab==='usage') body=renderUsage(t);
   else if(CTab==='members') body=renderMembersTab(t,isAdmin);
   document.getElementById('mainContent').innerHTML=bc+header+tabsHtml+body;
@@ -1203,6 +1239,77 @@ async function saveChannelConfig(channelName){
   inputs.forEach(i=>{if(i.value)config[i.dataset.key]=i.value});
   const d=await api('PUT','/api/portal/tenants/'+D.id+'/channels/config',{channel_name:channelName,config});
   if(d.ok){configuringChannel=null;D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody();alert('Channel config saved!')}else{alert(d.error||'Failed')}
+}
+
+// Tab: Agent (System Prompt, Skills, Hands)
+let _agentSkills=null,_agentHands=null;
+async function renderAgent(t,canEdit){
+  const dis=canEdit?'':'disabled';
+  // Load skills & hands from system
+  if(!_agentSkills){try{const d=await api('GET','/api/portal/system/skills');_agentSkills=d.skills||[]}catch(e){_agentSkills=[]}}
+  if(!_agentHands){try{const d=await api('GET','/api/portal/system/hands');_agentHands=d.hands||[]}catch(e){_agentHands=[]}}
+  const curSkills=t.skills||[];
+  const curHands=t.hands||[];
+  // Section 1: System Prompt
+  let html=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>System Prompt</h3><span class="badge plan">${(t.system_prompt||'').length} chars</span></div>
+    <textarea id="agentPrompt" rows="8" style="width:100%;padding:12px;border:1px solid var(--b);border-radius:8px;font-family:'Inter',sans-serif;font-size:.85rem;resize:vertical;background:var(--bg)" placeholder="You are a helpful customer support agent for our company. You should be friendly, professional, and always try to help the customer..." ${dis}>${t.system_prompt||''}</textarea>
+    <p style="font-size:.75rem;color:var(--d);margin-top:6px">Define your Agent's personality, rules, and knowledge. This prompt is sent at the start of every conversation.</p></div>`;
+  // Section 2: Skills
+  const skillCats={};
+  _agentSkills.forEach(s=>{const cat=s.tags&&s.tags[0]?s.tags[0]:'other';if(!skillCats[cat])skillCats[cat]=[];skillCats[cat].push(s)});
+  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>Skills</h3><span class="badge running">${curSkills.length} active</span></div>
+    <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Select specialized knowledge areas for your Agent. Each skill adds domain expertise.</p>`;
+  Object.keys(skillCats).sort().forEach(cat=>{
+    const skills=skillCats[cat];
+    html+=`<div style="margin-bottom:12px"><div style="font-size:.75rem;font-weight:600;color:var(--d);text-transform:uppercase;margin-bottom:6px">${cat} (${skills.length})</div><div style="display:flex;flex-wrap:wrap;gap:6px">`;
+    skills.forEach(s=>{
+      const active=curSkills.includes(s.name);
+      const cls=active?'background:var(--o);color:#fff;border-color:var(--o)':'background:var(--bg2);color:var(--t);border-color:var(--b)';
+      html+=`<div class="skill-chip" data-skill="${s.name}" onclick="${canEdit?"toggleSkill('"+s.name+"',this)":''}" style="padding:4px 10px;border:1px solid;border-radius:16px;font-size:.75rem;cursor:${canEdit?'pointer':'default'};transition:all .2s;${cls}" title="${s.description||s.name}">${s.name}</div>`;
+    });
+    html+=`</div></div>`;
+  });
+  html+=`</div>`;
+  // Section 3: Hands
+  const handIcons={'browser':'&#127760;','researcher':'&#128270;','collector':'&#128203;','lead':'&#128188;','predictor':'&#128200;','twitter':'&#128038;'};
+  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>Hands</h3><span class="badge running">${curHands.length} active</span></div>
+    <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Enable action capabilities. Hands let your Agent perform real-world actions.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">`;
+  _agentHands.forEach(h=>{
+    const active=curHands.includes(h.name);
+    const border=active?'border-color:var(--o);background:var(--ol)':'border-color:var(--b);background:var(--bg)';
+    const icon=handIcons[h.name]||'&#129302;';
+    html+=`<div class="hand-card" data-hand="${h.name}" onclick="${canEdit?"toggleHand('"+h.name+"',this)":''}" style="padding:16px;border:2px solid;border-radius:12px;cursor:${canEdit?'pointer':'default'};transition:all .2s;${border}">
+      <div style="font-size:1.5rem;margin-bottom:6px">${icon}</div>
+      <div style="font-weight:600;font-size:.85rem;margin-bottom:4px">${h.name.charAt(0).toUpperCase()+h.name.slice(1)}</div>
+      <div style="font-size:.75rem;color:var(--d)">${h.description||''}</div>
+      <div style="margin-top:8px"><span class="badge ${active?'running':'stopped'}" style="font-size:.65rem">${active?'Active':'Inactive'}</span></div>
+    </div>`;
+  });
+  html+=`</div></div>`;
+  // Save button
+  if(canEdit){html+=`<div style="margin-top:16px;display:flex;gap:8px"><button class="btn-o" onclick="saveAgentConfig()">Save Agent Config</button></div>`}
+  return html;
+}
+function toggleSkill(name,el){
+  const t=D;if(!t)return;
+  const idx=(t.skills||[]).indexOf(name);
+  if(idx>=0){t.skills.splice(idx,1);el.style.background='var(--bg2)';el.style.color='var(--t)';el.style.borderColor='var(--b)'}
+  else{if(!t.skills)t.skills=[];t.skills.push(name);el.style.background='var(--o)';el.style.color='#fff';el.style.borderColor='var(--o)'}
+  document.querySelectorAll('.config-section h3+span.badge.running')[0].textContent=t.skills.length+' active';
+}
+function toggleHand(name,el){
+  const t=D;if(!t)return;
+  const idx=(t.hands||[]).indexOf(name);
+  if(idx>=0){t.hands.splice(idx,1);el.style.borderColor='var(--b)';el.style.background='var(--bg)';el.querySelector('.badge').className='badge stopped';el.querySelector('.badge').textContent='Inactive'}
+  else{if(!t.hands)t.hands=[];t.hands.push(name);el.style.borderColor='var(--o)';el.style.background='var(--ol)';el.querySelector('.badge').className='badge running';el.querySelector('.badge').textContent='Active'}
+  document.querySelectorAll('.config-section h3+span.badge.running')[1].textContent=t.hands.length+' active';
+}
+async function saveAgentConfig(){
+  if(!D)return;
+  const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[]};
+  const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
+  if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);alert('Agent config saved!')}else{alert(d.error||'Failed')}
 }
 
 // Tab: Usage

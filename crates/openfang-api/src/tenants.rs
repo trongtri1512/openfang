@@ -43,6 +43,15 @@ pub struct Tenant {
     /// Per-tenant channel configurations.
     #[serde(default)]
     pub channels: Vec<TenantChannel>,
+    /// Agent system prompt (personality, instructions).
+    #[serde(default)]
+    pub system_prompt: String,
+    /// Assigned skill IDs (e.g., ["docker", "github", "kubernetes"]).
+    #[serde(default)]
+    pub skills: Vec<String>,
+    /// Assigned hand IDs (e.g., ["browser", "researcher"]).
+    #[serde(default)]
+    pub hands: Vec<String>,
 }
 
 /// A channel configured for a specific tenant.
@@ -431,6 +440,9 @@ pub async fn create_tenant(
         version: format!("openfang-{}", env!("CARGO_PKG_VERSION")),
         api_key: None,
         channels: vec![],
+        system_prompt: String::new(),
+        skills: vec![],
+        hands: vec![],
     };
 
     let mut data = load_tenants(&state);
