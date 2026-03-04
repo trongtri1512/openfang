@@ -825,7 +825,8 @@ pub async fn build_router(
         )
         .route(
             "/api/portal/tenants/{id}",
-            axum::routing::get(crate::portal::portal_tenant_detail),
+            axum::routing::get(crate::portal::portal_tenant_detail)
+                .delete(crate::portal::portal_delete_tenant),
         )
         .route(
             "/api/portal/members",
@@ -843,6 +844,23 @@ pub async fn build_router(
             "/api/portal/tenants/{id}/members",
             axum::routing::post(crate::portal::portal_add_member)
                 .delete(crate::portal::portal_remove_member),
+        )
+        .route(
+            "/api/portal/tenants/{id}/config",
+            axum::routing::put(crate::portal::portal_update_config),
+        )
+        .route(
+            "/api/portal/tenants/{id}/restart",
+            axum::routing::post(crate::portal::portal_restart),
+        )
+        .route(
+            "/api/portal/tenants/{id}/stop",
+            axum::routing::post(crate::portal::portal_stop),
+        )
+        .route(
+            "/api/portal/tenants/{id}/channels",
+            axum::routing::post(crate::portal::portal_add_channel)
+                .delete(crate::portal::portal_remove_channel),
         )
         // OpenAI-compatible API
         .route(

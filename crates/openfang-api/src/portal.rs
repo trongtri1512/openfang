@@ -290,6 +290,117 @@ pub async fn portal_remove_member(State(state): State<Arc<AppState>>, Path(id): 
     Json(serde_json::json!({"ok":true})).into_response()
 }
 
+// ---------------------------------------------------------------------------
+// Portal: Config, Actions, Channels (admin-only)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct PortalUpdateConfigRequest {
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub temperature: Option<f64>,
+    pub api_key: Option<String>,
+}
+
+/// PUT /api/portal/tenants/:id/config - Update tenant config.
+pub async fn portal_update_config(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalUpdateConfigRequest>) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    if let Some(provider) = req.provider { tenant.provider = provider; }
+    if let Some(model) = req.model { tenant.model = model; }
+    if let Some(temp) = req.temperature { tenant.temperature = temp; }
+    if let Some(key) = req.api_key { tenant.api_key = Some(key); }
+    let updated = tenant.clone();
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Updated tenant config via portal");
+    Json(serde_json::json!({"ok":true,"tenant":updated})).into_response()
+}
+
+/// POST /api/portal/tenants/:id/restart - Restart tenant.
+pub async fn portal_restart(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    match data.tenants.iter_mut().find(|t| t.id == id) {
+        Some(t) => { t.status = crate::tenants::TenantStatus::Running; t.messages_today = 0; let _ = save_tenants(&state, &data); info!(tenant_id = %id, "Restarted tenant via portal"); Json(serde_json::json!({"ok":true,"status":"running"})).into_response() }
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response(),
+    }
+}
+
+/// POST /api/portal/tenants/:id/stop - Stop tenant.
+pub async fn portal_stop(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    match data.tenants.iter_mut().find(|t| t.id == id) {
+        Some(t) => { t.status = crate::tenants::TenantStatus::Stopped; let _ = save_tenants(&state, &data); info!(tenant_id = %id, "Stopped tenant via portal"); Json(serde_json::json!({"ok":true,"status":"stopped"})).into_response() }
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response(),
+    }
+}
+
+/// DELETE /api/portal/tenants/:id - Delete tenant.
+pub async fn portal_delete_tenant(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let before = data.tenants.len();
+    data.tenants.retain(|t| t.id != id);
+    if data.tenants.len() == before { return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response(); }
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Deleted tenant via portal");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PortalAddChannelRequest {
+    pub channel_type: String,
+    pub name: Option<String>,
+    #[serde(default)]
+    pub config: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PortalRemoveChannelRequest {
+    pub name: String,
+}
+
+/// POST /api/portal/tenants/:id/channels - Add channel.
+pub async fn portal_add_channel(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalAddChannelRequest>) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    if tenant.channels.len() as u32 >= tenant.max_channels { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Channel limit reached"}))).into_response(); }
+    let channel = crate::tenants::TenantChannel {
+        name: req.name.unwrap_or_else(|| req.channel_type.clone()),
+        channel_type: req.channel_type,
+        enabled: true,
+        config: req.config,
+        added_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+    };
+    tenant.channels.push(channel);
+    tenant.channels_active = tenant.channels.iter().filter(|c| c.enabled).count() as u32;
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Added channel via portal");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
+/// DELETE /api/portal/tenants/:id/channels - Remove channel.
+pub async fn portal_remove_channel(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalRemoveChannelRequest>) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    let before = tenant.channels.len();
+    tenant.channels.retain(|c| c.name != req.name);
+    if tenant.channels.len() == before { return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel not found"}))).into_response(); }
+    tenant.channels_active = tenant.channels.iter().filter(|c| c.enabled).count() as u32;
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Removed channel via portal");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
 
 // ---------------------------------------------------------------------------
 // Embedded Portal HTML
@@ -488,7 +599,6 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
   </div>
 </div>
 
-<!-- Add Member Modal -->
 <div class="modal-bg" id="addMemberModal">
   <div class="modal">
     <h3>Add Member</h3>
@@ -497,6 +607,16 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
     <div class="fg"><label>Role</label><select id="amRole"><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div>
     <div class="fg"><label>Password (optional)</label><input type="password" id="amPass" placeholder="Min 4 chars for portal login"></div>
     <div class="actions"><button class="btn-cancel" onclick="closeModal('addMemberModal')">Cancel</button><button class="btn-o" onclick="doAddMember()">Add Member</button></div>
+  </div>
+</div>
+
+<!-- Add Channel Modal -->
+<div class="modal-bg" id="addChannelModal">
+  <div class="modal">
+    <h3>Add Channel</h3>
+    <div class="fg"><label>Channel Type</label><select id="acType"><option value="">Select type...</option><option value="telegram">Telegram</option><option value="discord">Discord</option><option value="slack">Slack</option><option value="whatsapp">WhatsApp</option><option value="signal">Signal</option><option value="matrix">Matrix</option><option value="email">Email</option><option value="zalo">Zalo</option><option value="web">Web Widget</option></select></div>
+    <div class="fg"><label>Display Name (optional)</label><input type="text" id="acName" placeholder="e.g. My Telegram Bot"></div>
+    <div class="actions"><button class="btn-cancel" onclick="closeModal('addChannelModal')">Cancel</button><button class="btn-o" onclick="addChannel()">Add Channel</button></div>
   </div>
 </div>
 
@@ -536,7 +656,7 @@ async function openDetail(id){
 function renderDetailPage(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
   document.getElementById('pageTitle').innerHTML=`<span>${t.name}</span>`;
-  const ha=isAdmin?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="alert('Restart not available from portal')">Restart</button><button class="btn-g" onclick="alert('Stop not available from portal')">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="alert('Delete not available from portal')">Delete</button>`:'';
+  const ha=isAdmin?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="doRestart()">Restart</button><button class="btn-g" onclick="doStop()">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="doDeleteTenant()">Delete</button>`:'';
   document.getElementById('headerActions').innerHTML=ha;
   renderDetailBody();
 }
@@ -583,24 +703,33 @@ function renderOverview(t){
 
 // Tab: Config
 function renderConfig(t){
-  return `<div class="config-section"><h3>AI Provider</h3>
-    <div class="config-row"><div class="fg"><label>Provider</label><select disabled><option>${t.provider||'-'}</option></select></div><div class="fg"><label>Model</label><input type="text" value="${t.model||''}" disabled></div></div>
-    <div class="fg"><label>Temperature</label><input type="text" value="${t.temperature}" disabled style="width:120px"></div>
-    <div class="warn">Configuration changes are managed by the system administrator.</div>
-  </div>
+  const isAdmin=S.role==='admin';
+  const dis=isAdmin?'':'disabled';
+  const providers=['anthropic','openai','groq','deepseek','openrouter','together','mistral','fireworks','gemini','ollama','vllm','lmstudio'];
+  const provOpts=providers.map(p=>`<option value="${p}"${t.provider===p?' selected':''}>${p}</option>`).join('');
+  let html=`<div class="config-section"><h3>AI Provider</h3>
+    <div class="config-row"><div class="fg"><label>Provider</label><select id="cfgProvider" ${dis}>${provOpts}</select></div><div class="fg"><label>Model</label><input type="text" id="cfgModel" value="${t.model||''}" ${dis}></div></div>
+    <div class="config-row"><div class="fg"><label>Temperature</label><input type="text" id="cfgTemp" value="${t.temperature}" ${dis} style="width:120px"></div><div class="fg"><label>API Key</label><input type="password" id="cfgApiKey" value="${t.api_key||''}" placeholder="Provider API key" ${dis}></div></div>`;
+  if(isAdmin){html+=`<div style="margin-top:12px"><button class="btn-o" onclick="saveConfig()">Save Config</button></div>`}
+  else{html+=`<div class="warn">Configuration changes are managed by the system administrator.</div>`}
+  html+=`</div>
   <div class="config-section"><h3>Quotas</h3>
     <div class="config-row"><div class="fg"><label>Messages per Day</label><input type="text" value="${fmt(t.max_messages_per_day)}" disabled></div><div class="fg"><label>Max Channels</label><input type="text" value="${fmt(t.max_channels)}" disabled></div></div>
     <div class="fg"><label>Max Members</label><input type="text" value="${fmt(t.max_members)}" disabled style="width:200px"></div>
   </div>`;
+  return html;
 }
 
 // Tab: Channels
 function renderChannels(t){
+  const isAdmin=S.role==='admin';
   const ch=t.channels||[];
-  const cnt=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><h3 style="font-size:1rem;font-weight:700">Channels</h3><p style="font-size:.8rem;color:var(--d)">${ch.length} / ${fmt(t.max_channels)} channels connected</p></div></div>`;
+  const addBtn=isAdmin?`<button class="btn-o" onclick="openModal('addChannelModal')">+ Add Channel</button>`:'';
+  const cnt=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><h3 style="font-size:1rem;font-weight:700">Channels</h3><p style="font-size:.8rem;color:var(--d)">${ch.length} / ${fmt(t.max_channels)} channels connected</p></div>${addBtn}</div>`;
   if(ch.length===0){return cnt+`<div class="empty"><div class="empty-icon">(( ))</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`}
-  const rows=ch.map(c=>`<tr><td style="text-transform:capitalize;font-weight:500">${c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td><span class="badge running">Active</span></td></tr>`).join('');
-  return cnt+`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows=ch.map(c=>{const del=isAdmin?`<button class="btn-r" onclick="removeChannel('${c.name}')">Remove</button>`:'';
+    return `<tr><td style="text-transform:capitalize;font-weight:500">${c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td><span class="badge running">Active</span></td><td>${del}</td></tr>`}).join('');
+  return cnt+`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th>${isAdmin?'<th>Actions</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // Tab: Usage
@@ -629,6 +758,18 @@ function renderMembersTab(t,isAdmin){
   }).join('');
   return header+`<table class="dt"><thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+
+// Tenant Actions
+async function doRestart(){if(!D)return;const d=await api('POST',`/api/portal/tenants/${D.id}/restart`);if(d.ok){await loadT();D=await api('GET','/api/portal/tenants/'+D.id);renderDetailPage()}else{alert(d.error||'Failed')}}
+async function doStop(){if(!D||!confirm('Stop this tenant?'))return;const d=await api('POST',`/api/portal/tenants/${D.id}/stop`);if(d.ok){await loadT();D=await api('GET','/api/portal/tenants/'+D.id);renderDetailPage()}else{alert(d.error||'Failed')}}
+async function doDeleteTenant(){if(!D||!confirm('Delete tenant "'+D.name+'"? This cannot be undone.'))return;const d=await api('DELETE','/api/portal/tenants/'+D.id);if(d.ok){await loadT();showPage('tenants')}else{alert(d.error||'Failed')}}
+
+// Config Actions
+async function saveConfig(){if(!D)return;const body={provider:document.getElementById('cfgProvider').value,model:document.getElementById('cfgModel').value,temperature:parseFloat(document.getElementById('cfgTemp').value)||0.7};const key=document.getElementById('cfgApiKey').value.trim();if(key)body.api_key=key;const d=await api('PUT',`/api/portal/tenants/${D.id}/config`,body);if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody();alert('Config saved!')}else{alert(d.error||'Failed')}}
+
+// Channel Actions
+async function addChannel(){const ct=document.getElementById('acType').value,nm=document.getElementById('acName').value.trim();if(!ct){alert('Channel type is required');return}const body={channel_type:ct};if(nm)body.name=nm;const d=await api('POST',`/api/portal/tenants/${D.id}/channels`,body);if(d.ok){closeModal('addChannelModal');document.getElementById('acName').value='';D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
+async function removeChannel(name){if(!confirm('Remove channel "'+name+'"?'))return;const d=await api('DELETE',`/api/portal/tenants/${D.id}/channels`,{name});if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 
 // Member Actions
 async function changeRole(email,role){const d=await api('PUT',`/api/portal/tenants/${D.id}/members/role`,{email,role});if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
