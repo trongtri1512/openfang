@@ -1,6 +1,6 @@
 # NOTE: The GHCR image (ghcr.io/rightnow-ai/openfang) is not yet public.
 # For now, build from source using `docker compose up --build`
-# Data is persisted at ./data on the host (tenants.json, config, etc.)
+# Data is persisted in Docker named volume 'openfang-data'
 
 version: "3.8"
 services:
@@ -9,7 +9,7 @@ services:
     ports:
       - "4200:4200"
     volumes:
-      - ./data:/data
+      - openfang-data:/data
     environment:
       - OPENFANG_LISTEN=0.0.0.0:4200
       - OPENFANG_API_KEY=${OPENFANG_API_KEY:-openfang}
@@ -21,3 +21,6 @@ services:
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
     restart: unless-stopped
+
+volumes:
+  openfang-data:
