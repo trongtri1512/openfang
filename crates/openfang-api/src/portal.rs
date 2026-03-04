@@ -730,6 +730,8 @@ pub async fn portal_create_my_tenant(State(state): State<Arc<AppState>>, headers
         system_prompt: String::new(),
         skills: vec![],
         hands: vec![],
+        language: String::new(),
+        webhook_url: None,
     };
 
     let tid = tenant.id.clone();
@@ -783,9 +785,11 @@ pub struct PortalUpdateAgentRequest {
     pub system_prompt: Option<String>,
     pub skills: Option<Vec<String>>,
     pub hands: Option<Vec<String>>,
+    pub language: Option<String>,
+    pub webhook_url: Option<String>,
 }
 
-/// PUT /api/portal/tenants/:id/agent - Update per-tenant agent config (system prompt, skills, hands).
+/// PUT /api/portal/tenants/:id/agent - Update per-tenant agent config.
 pub async fn portal_update_agent(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalUpdateAgentRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
     let data_check = load_tenants(&state);
@@ -795,9 +799,65 @@ pub async fn portal_update_agent(State(state): State<Arc<AppState>>, Path(id): P
     if let Some(prompt) = req.system_prompt { tenant.system_prompt = prompt; }
     if let Some(skills) = req.skills { tenant.skills = skills; }
     if let Some(hands) = req.hands { tenant.hands = hands; }
+    if let Some(lang) = req.language { tenant.language = lang; }
+    if let Some(wh) = req.webhook_url { tenant.webhook_url = if wh.is_empty() { None } else { Some(wh) }; }
     let _ = save_tenants(&state, &data);
     info!(tenant_id = %id, "Updated agent config via portal");
     Json(serde_json::json!({"ok":true})).into_response()
+}
+
+/// POST /api/portal/tenants/:id/clone - Clone a tenant with new name/ID.
+pub async fn portal_clone_tenant(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let source = match data.tenants.iter().find(|t| t.id == id) { Some(t) => t.clone(), None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    let new_id = uuid::Uuid::new_v4().to_string();
+    let new_slug = format!("{}-copy", source.slug);
+    let clone = crate::tenants::Tenant {
+        id: new_id.clone(),
+        name: format!("{} (Copy)", source.name),
+        slug: new_slug,
+        status: crate::tenants::TenantStatus::Stopped,
+        messages_today: 0,
+        channels_active: 0,
+        channels: vec![],
+        members: source.members.clone(),
+        access_token: crate::tenants::generate_access_token(),
+        created_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        ..source
+    };
+    data.tenants.push(clone);
+    let _ = save_tenants(&state, &data);
+    info!(source = %id, clone = %new_id, "Cloned tenant via portal");
+    Json(serde_json::json!({"ok":true,"tenant_id":new_id})).into_response()
+}
+
+/// GET /api/portal/tenants/:id/conversations - Get conversation history for tenant.
+pub async fn portal_conversations(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
+    // Conversation history - loaded from tenant's conversation log file
+    let conv_dir = state.kernel.config.home_dir.join("conversations").join(&id);
+    let mut conversations = vec![];
+    if conv_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&conv_dir) {
+            for entry in entries.flatten() {
+                if entry.path().extension().map(|e| e == "json").unwrap_or(false) {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        if let Ok(conv) = serde_json::from_str::<serde_json::Value>(&content) {
+                            conversations.push(conv);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    conversations.sort_by(|a, b| b.get("created_at").and_then(|v| v.as_str()).cmp(&a.get("created_at").and_then(|v| v.as_str())));
+    let total = conversations.len();
+    Json(serde_json::json!({"conversations": conversations, "total": total})).into_response()
 }
 const PORTAL_HTML: &str = r##"<!DOCTYPE html>
 <html lang="vi">
@@ -1056,7 +1116,7 @@ const ROLES=['Owner','Manager','Contributor','Viewer'];
 const INF=4294967295;
 function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(S)o.headers.Authorization='Bearer '+S.token;if(b)o.body=JSON.stringify(b);return fetch(p,o).then(r=>r.json())}
 function fmt(v){return v>=INF?'Unlimited':v}
-function fmtDate(d){if(!d)return '-';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function fmtDate(d){if(!d)return'-';try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}}
 
 // Auth
 async function doLogin(){const e=document.getElementById('loginEmail').value.trim(),p=document.getElementById('loginPass').value,err=document.getElementById('loginError');err.style.display='none';if(!e||!p){err.textContent='Please fill in all fields';err.style.display='block';return}document.getElementById('loginBtn').disabled=true;try{const d=await api('POST','/api/portal/login',{email:e,password:p});if(d.error){err.textContent=d.error;err.style.display='block';return}S=d;localStorage.setItem('ps',JSON.stringify(d));showDash()}catch(x){err.textContent='Connection error';err.style.display='block'}finally{document.getElementById('loginBtn').disabled=false}}
@@ -1090,7 +1150,7 @@ function renderDetailPage(){
   const isOwner=!isAdmin&&(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
   const canEdit=isAdmin||isOwner;
   document.getElementById('pageTitle').innerHTML=`<span>${t.name}</span>`;
-  const ha=canEdit?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="doRestart()">Restart</button><button class="btn-g" onclick="doStop()">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="doDeleteTenant()">Delete</button>`:'';
+  const ha=canEdit?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="cloneTenant()">Clone</button><button class="btn-g" onclick="doRestart()">Restart</button><button class="btn-g" onclick="doStop()">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="doDeleteTenant()">Delete</button>`:'';
   document.getElementById('headerActions').innerHTML=ha;
   renderDetailBody();
 }
@@ -1100,7 +1160,7 @@ async function renderDetailBody(){
   const canEdit=isAdmin||isOwner;
   const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> &gt; ${t.name}</div>`;
   const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> &middot; <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
-  const TABS=['Overview','Config','Channels','Agent','Usage','Members'];
+  const TABS=['Overview','Config','Channels','Agent','Usage','Members','History'];
   const tabsHtml=`<div class="tabs">${TABS.map(tb=>`<div class="tab${CTab===tb.toLowerCase()?' active':''}" onclick="CTab='${tb.toLowerCase()}';renderDetailBody()">${tb}</div>`).join('')}</div>`;
   let body='';
   if(CTab==='overview') body=renderOverview(t);
@@ -1109,6 +1169,7 @@ async function renderDetailBody(){
   else if(CTab==='agent') body=await renderAgent(t,canEdit);
   else if(CTab==='usage') body=renderUsage(t);
   else if(CTab==='members') body=renderMembersTab(t,isAdmin);
+  else if(CTab==='history') body=await renderHistory(t);
   document.getElementById('mainContent').innerHTML=bc+header+tabsHtml+body;
   if(CTab==='config') loadModelsForProvider();
 }
@@ -1241,24 +1302,38 @@ async function saveChannelConfig(channelName){
   if(d.ok){configuringChannel=null;D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody();alert('Channel config saved!')}else{alert(d.error||'Failed')}
 }
 
-// Tab: Agent (System Prompt, Skills, Hands)
+// Tab: Agent (System Prompt, Skills, Hands, Language, Webhook)
+const PROMPT_TEMPLATES=[
+  {name:'Custom',prompt:''},
+  {name:'Customer Support',prompt:'You are a friendly and professional customer support agent. Always greet the customer, listen carefully to their issue, provide clear solutions, and ensure satisfaction before ending the conversation. Use a warm and helpful tone.'},
+  {name:'Sales Agent',prompt:'You are an enthusiastic sales agent. Your goal is to understand customer needs, recommend the best products or services, handle objections professionally, and guide customers toward making a purchase. Be persuasive but never pushy.'},
+  {name:'Knowledge Base',prompt:'You are a knowledgeable assistant that answers questions based on the company\'s knowledge base. Provide accurate, detailed answers. If you don\'t know something, say so honestly and suggest where the user might find the information.'},
+  {name:'Technical Support',prompt:'You are a technical support specialist. Help users troubleshoot issues step by step. Ask clarifying questions, provide clear instructions, and verify the solution works before closing the ticket.'},
+  {name:'Onboarding Guide',prompt:'You are a friendly onboarding guide that helps new users get started. Walk them through features, answer questions about how things work, and provide tips for getting the most out of the platform.'},
+];
+const LANGUAGES=[{code:'',name:'Auto Detect'},{code:'vi',name:'Vietnamese'},{code:'en',name:'English'},{code:'ja',name:'Japanese'},{code:'ko',name:'Korean'},{code:'zh',name:'Chinese'},{code:'th',name:'Thai'},{code:'fr',name:'French'},{code:'de',name:'German'},{code:'es',name:'Spanish'},{code:'pt',name:'Portuguese'}];
 let _agentSkills=null,_agentHands=null;
 async function renderAgent(t,canEdit){
   const dis=canEdit?'':'disabled';
-  // Load skills & hands from system
   if(!_agentSkills){try{const d=await api('GET','/api/portal/system/skills');_agentSkills=d.skills||[]}catch(e){_agentSkills=[]}}
   if(!_agentHands){try{const d=await api('GET','/api/portal/system/hands');_agentHands=d.hands||[]}catch(e){_agentHands=[]}}
-  const curSkills=t.skills||[];
-  const curHands=t.hands||[];
-  // Section 1: System Prompt
-  let html=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>System Prompt</h3><span class="badge plan">${(t.system_prompt||'').length} chars</span></div>
-    <textarea id="agentPrompt" rows="8" style="width:100%;padding:12px;border:1px solid var(--b);border-radius:8px;font-family:'Inter',sans-serif;font-size:.85rem;resize:vertical;background:var(--bg)" placeholder="You are a helpful customer support agent for our company. You should be friendly, professional, and always try to help the customer..." ${dis}>${t.system_prompt||''}</textarea>
+  const curSkills=t.skills||[];const curHands=t.hands||[];
+  // Section 1: System Prompt with Templates
+  const tplOpts=PROMPT_TEMPLATES.map(tp=>`<option value="${tp.name}">${tp.name}</option>`).join('');
+  let html=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>System Prompt</h3><div style="display:flex;gap:8px;align-items:center"><select id="promptTemplate" onchange="applyTemplate()" ${dis} style="font-size:.8rem;padding:4px 8px;border:1px solid var(--b);border-radius:6px"><option value="">Load Template...</option>${tplOpts}</select><span class="badge plan">${(t.system_prompt||'').length} chars</span></div></div>
+    <textarea id="agentPrompt" rows="8" style="width:100%;padding:12px;border:1px solid var(--b);border-radius:8px;font-family:'Inter',sans-serif;font-size:.85rem;resize:vertical;background:var(--bg)" placeholder="You are a helpful customer support agent..." ${dis}>${t.system_prompt||''}</textarea>
     <p style="font-size:.75rem;color:var(--d);margin-top:6px">Define your Agent's personality, rules, and knowledge. This prompt is sent at the start of every conversation.</p></div>`;
-  // Section 2: Skills
+  // Section 2: Language & Webhook
+  const langOpts=LANGUAGES.map(l=>`<option value="${l.code}"${(t.language||'')===l.code?' selected':''}>${l.name}</option>`).join('');
+  html+=`<div class="config-section"><h3 style="margin-bottom:12px">Settings</h3>
+    <div class="config-row"><div class="fg"><label>Primary Language</label><select id="agentLang" ${dis}>${langOpts}</select></div>
+    <div class="fg"><label>Webhook URL</label><input type="url" id="agentWebhook" value="${t.webhook_url||''}" placeholder="https://your-crm.com/webhook" ${dis}></div></div>
+    <p style="font-size:.75rem;color:var(--d);margin-top:6px">Language sets the default reply language. Webhook receives POST notifications for new messages.</p></div>`;
+  // Section 3: Skills
   const skillCats={};
   _agentSkills.forEach(s=>{const cat=s.tags&&s.tags[0]?s.tags[0]:'other';if(!skillCats[cat])skillCats[cat]=[];skillCats[cat].push(s)});
   html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>Skills</h3><span class="badge running">${curSkills.length} active</span></div>
-    <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Select specialized knowledge areas for your Agent. Each skill adds domain expertise.</p>`;
+    <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Select specialized knowledge areas for your Agent.</p>`;
   Object.keys(skillCats).sort().forEach(cat=>{
     const skills=skillCats[cat];
     html+=`<div style="margin-bottom:12px"><div style="font-size:.75rem;font-weight:600;color:var(--d);text-transform:uppercase;margin-bottom:6px">${cat} (${skills.length})</div><div style="display:flex;flex-wrap:wrap;gap:6px">`;
@@ -1266,14 +1341,12 @@ async function renderAgent(t,canEdit){
       const active=curSkills.includes(s.name);
       const cls=active?'background:var(--o);color:#fff;border-color:var(--o)':'background:var(--bg2);color:var(--t);border-color:var(--b)';
       html+=`<div class="skill-chip" data-skill="${s.name}" onclick="${canEdit?"toggleSkill('"+s.name+"',this)":''}" style="padding:4px 10px;border:1px solid;border-radius:16px;font-size:.75rem;cursor:${canEdit?'pointer':'default'};transition:all .2s;${cls}" title="${s.description||s.name}">${s.name}</div>`;
-    });
-    html+=`</div></div>`;
-  });
-  html+=`</div>`;
-  // Section 3: Hands
+    });html+=`</div></div>`;
+  });html+=`</div>`;
+  // Section 4: Hands
   const handIcons={'browser':'&#127760;','researcher':'&#128270;','collector':'&#128203;','lead':'&#128188;','predictor':'&#128200;','twitter':'&#128038;'};
   html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>Hands</h3><span class="badge running">${curHands.length} active</span></div>
-    <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Enable action capabilities. Hands let your Agent perform real-world actions.</p>
+    <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Enable action capabilities for your Agent.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">`;
   _agentHands.forEach(h=>{
     const active=curHands.includes(h.name);
@@ -1285,31 +1358,55 @@ async function renderAgent(t,canEdit){
       <div style="font-size:.75rem;color:var(--d)">${h.description||''}</div>
       <div style="margin-top:8px"><span class="badge ${active?'running':'stopped'}" style="font-size:.65rem">${active?'Active':'Inactive'}</span></div>
     </div>`;
-  });
-  html+=`</div></div>`;
-  // Save button
-  if(canEdit){html+=`<div style="margin-top:16px;display:flex;gap:8px"><button class="btn-o" onclick="saveAgentConfig()">Save Agent Config</button></div>`}
+  });html+=`</div></div>`;
+  if(canEdit){html+=`<div style="margin-top:16px"><button class="btn-o" onclick="saveAgentConfig()">Save Agent Config</button></div>`}
   return html;
 }
+function applyTemplate(){const sel=document.getElementById('promptTemplate');const tpl=PROMPT_TEMPLATES.find(t=>t.name===sel.value);if(tpl&&tpl.prompt){document.getElementById('agentPrompt').value=tpl.prompt}}
 function toggleSkill(name,el){
   const t=D;if(!t)return;
   const idx=(t.skills||[]).indexOf(name);
   if(idx>=0){t.skills.splice(idx,1);el.style.background='var(--bg2)';el.style.color='var(--t)';el.style.borderColor='var(--b)'}
   else{if(!t.skills)t.skills=[];t.skills.push(name);el.style.background='var(--o)';el.style.color='#fff';el.style.borderColor='var(--o)'}
-  document.querySelectorAll('.config-section h3+span.badge.running')[0].textContent=t.skills.length+' active';
 }
 function toggleHand(name,el){
   const t=D;if(!t)return;
   const idx=(t.hands||[]).indexOf(name);
   if(idx>=0){t.hands.splice(idx,1);el.style.borderColor='var(--b)';el.style.background='var(--bg)';el.querySelector('.badge').className='badge stopped';el.querySelector('.badge').textContent='Inactive'}
   else{if(!t.hands)t.hands=[];t.hands.push(name);el.style.borderColor='var(--o)';el.style.background='var(--ol)';el.querySelector('.badge').className='badge running';el.querySelector('.badge').textContent='Active'}
-  document.querySelectorAll('.config-section h3+span.badge.running')[1].textContent=t.hands.length+' active';
 }
 async function saveAgentConfig(){
   if(!D)return;
-  const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[]};
+  const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[],language:document.getElementById('agentLang').value,webhook_url:document.getElementById('agentWebhook').value};
   const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
   if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);alert('Agent config saved!')}else{alert(d.error||'Failed')}
+}
+async function cloneTenant(){
+  if(!D)return;if(!confirm('Clone tenant "'+D.name+'"? A new copy will be created.'))return;
+  const d=await api('POST','/api/portal/tenants/'+D.id+'/clone');
+  if(d.ok){alert('Tenant cloned! New ID: '+d.tenant_id);await loadT();showPage('tenants')}else{alert(d.error||'Failed')}
+}
+
+// Tab: History (Conversation History)
+async function renderHistory(t){
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:1rem;font-weight:700">Conversation History</h3></div>`;
+  try{
+    const d=await api('GET','/api/portal/tenants/'+t.id+'/conversations');
+    const convos=d.conversations||[];
+    if(convos.length===0){
+      html+=`<div class="empty"><div class="empty-icon">&#128172;</div><h4>No conversations yet</h4><p>Conversations will appear here once your Agent starts chatting with users.</p></div>`;
+    }else{
+      html+=`<div class="sr"><span class="sl">Total: <span class="sv">${convos.length}</span></span></div>`;
+      const rows=convos.map(c=>{
+        const last=c.last_message?c.last_message.content||'':'No messages';
+        return `<tr><td style="font-weight:500">${c.title||c.id||'-'}</td><td>${c.channel||'-'}</td><td>${c.message_count||0}</td><td style="color:var(--d);font-size:.8rem">${fmtDate(c.created_at)}</td><td style="font-size:.8rem;color:var(--d);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${last}</td></tr>`;
+      }).join('');
+      html+=`<table class="dt"><thead><tr><th>Title</th><th>Channel</th><th>Messages</th><th>Date</th><th>Last Message</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+  }catch(e){
+    html+=`<div class="empty"><div class="empty-icon">&#9888;</div><h4>Could not load conversations</h4><p>${e.message||'Error'}</p></div>`;
+  }
+  return html;
 }
 
 // Tab: Usage

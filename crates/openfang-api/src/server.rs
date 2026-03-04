@@ -918,6 +918,14 @@ pub async fn build_router(
             "/api/portal/tenants/{id}/agent",
             axum::routing::put(crate::portal::portal_update_agent),
         )
+        .route(
+            "/api/portal/tenants/{id}/clone",
+            axum::routing::post(crate::portal::portal_clone_tenant),
+        )
+        .route(
+            "/api/portal/tenants/{id}/conversations",
+            axum::routing::get(crate::portal::portal_conversations),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

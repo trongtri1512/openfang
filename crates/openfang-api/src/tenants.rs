@@ -52,6 +52,12 @@ pub struct Tenant {
     /// Assigned hand IDs (e.g., ["browser", "researcher"]).
     #[serde(default)]
     pub hands: Vec<String>,
+    /// Primary language for this tenant's agent (e.g., "vi", "en", "ja").
+    #[serde(default)]
+    pub language: String,
+    /// Webhook URL to notify when new messages arrive.
+    #[serde(default)]
+    pub webhook_url: Option<String>,
 }
 
 /// A channel configured for a specific tenant.
@@ -443,6 +449,8 @@ pub async fn create_tenant(
         system_prompt: String::new(),
         skills: vec![],
         hands: vec![],
+        language: String::new(),
+        webhook_url: None,
     };
 
     let mut data = load_tenants(&state);
