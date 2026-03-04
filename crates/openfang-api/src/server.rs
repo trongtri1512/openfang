@@ -756,6 +756,15 @@ pub async fn build_router(
             "/api/portal/tenants/{id}/set-password",
             axum::routing::post(crate::portal::portal_set_password),
         )
+        .route(
+            "/api/portal/tenants/{id}/members/role",
+            axum::routing::put(crate::portal::portal_update_role),
+        )
+        .route(
+            "/api/portal/tenants/{id}/members",
+            axum::routing::post(crate::portal::portal_add_member)
+                .delete(crate::portal::portal_remove_member),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",
