@@ -8,6 +8,9 @@
 .env.*
 !.env.example
 
+# Persistent data (Docker bind mount)
+/data
+
 # Database
 *.db
 *.db-shm
