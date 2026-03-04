@@ -210,8 +210,9 @@ pub async fn portal_me(headers: axum::http::HeaderMap) -> impl IntoResponse {
 pub async fn portal_tenants(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
     let data = load_tenants(&state);
+    let email = session.email.to_lowercase();
     let tenants: Vec<serde_json::Value> = data.tenants.iter()
-        .filter(|t| session.role == "admin" || session.tenant_ids.contains(&t.id))
+        .filter(|t| session.role == "admin" || session.tenant_ids.contains(&t.id) || t.members.iter().any(|m| m.email.to_lowercase() == email))
         .map(|t| serde_json::json!({"id":t.id,"name":t.name,"slug":t.slug,"status":t.status,"plan":t.plan,"provider":t.provider,"model":t.model,"messages_today":t.messages_today,"max_messages_per_day":t.max_messages_per_day,"channels_active":t.channels_active,"members_count":t.members.len(),"created_at":t.created_at,"version":t.version}))
         .collect();
     Json(serde_json::json!({"tenants":tenants})).into_response()
@@ -219,17 +220,28 @@ pub async fn portal_tenants(State(state): State<Arc<AppState>>, headers: axum::h
 
 pub async fn portal_tenant_detail(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" && !session.tenant_ids.contains(&id) {
-        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
-    }
     let data = load_tenants(&state);
+    let email = session.email.to_lowercase();
     match data.tenants.iter().find(|t| t.id == id) {
         Some(t) => {
+            let is_member = t.members.iter().any(|m| m.email.to_lowercase() == email);
+            if session.role != "admin" && !session.tenant_ids.contains(&id) && !is_member {
+                return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+            }
             let members: Vec<serde_json::Value> = t.members.iter().map(|m| serde_json::json!({"email":m.email,"role":m.role,"display_name":m.display_name,"added_at":m.added_at,"last_login":m.last_login,"has_password":m.password_hash.is_some()})).collect();
-            Json(serde_json::json!({"id":t.id,"name":t.name,"slug":t.slug,"status":t.status,"plan":t.plan,"provider":t.provider,"model":t.model,"temperature":t.temperature,"messages_today":t.messages_today,"max_messages_per_day":t.max_messages_per_day,"max_channels":t.max_channels,"max_members":t.max_members,"channels":t.channels,"members":members,"created_at":t.created_at,"version":t.version,"access_token":t.access_token})).into_response()
+            Json(serde_json::json!({"id":t.id,"name":t.name,"slug":t.slug,"status":t.status,"plan":t.plan,"provider":t.provider,"model":t.model,"temperature":t.temperature,"messages_today":t.messages_today,"max_messages_per_day":t.max_messages_per_day,"max_channels":t.max_channels,"max_members":t.max_members,"channels":t.channels,"members":members,"created_at":t.created_at,"version":t.version,"access_token":t.access_token,"api_key":t.api_key})).into_response()
         }
         None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response(),
     }
+}
+
+/// Check if session user is admin or owner/manager of a specific tenant.
+fn is_admin_or_owner(session: &PortalSession, data: &crate::tenants::TenantsFile, tenant_id: &str) -> bool {
+    if session.role == "admin" { return true; }
+    let email = session.email.to_lowercase();
+    data.tenants.iter().find(|t| t.id == tenant_id)
+        .map(|t| t.members.iter().any(|m| m.email.to_lowercase() == email && (m.role == "owner" || m.role == "manager")))
+        .unwrap_or(false)
 }
 
 pub async fn portal_all_members(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
@@ -281,7 +293,8 @@ pub async fn portal_update_role(State(state): State<Arc<AppState>>, Path(id): Pa
 /// POST /api/portal/tenants/:id/members - Add member to tenant.
 pub async fn portal_add_member(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<AddMemberRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let email = req.email.trim().to_lowercase();
     if email.is_empty() { return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"Email is required"}))).into_response(); }
     let mut data = load_tenants(&state);
@@ -306,7 +319,8 @@ pub async fn portal_add_member(State(state): State<Arc<AppState>>, Path(id): Pat
 /// DELETE /api/portal/tenants/:id/members - Remove member from tenant.
 pub async fn portal_remove_member(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<RemoveMemberRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let email = req.email.trim().to_lowercase();
     let mut data = load_tenants(&state);
     let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
@@ -333,7 +347,8 @@ pub struct PortalUpdateConfigRequest {
 /// PUT /api/portal/tenants/:id/config - Update tenant config.
 pub async fn portal_update_config(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalUpdateConfigRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let mut data = load_tenants(&state);
     let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
     if let Some(provider) = req.provider { tenant.provider = provider; }
@@ -349,7 +364,8 @@ pub async fn portal_update_config(State(state): State<Arc<AppState>>, Path(id): 
 /// POST /api/portal/tenants/:id/restart - Restart tenant.
 pub async fn portal_restart(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let mut data = load_tenants(&state);
     match data.tenants.iter_mut().find(|t| t.id == id) {
         Some(t) => { t.status = crate::tenants::TenantStatus::Running; t.messages_today = 0; let _ = save_tenants(&state, &data); info!(tenant_id = %id, "Restarted tenant via portal"); Json(serde_json::json!({"ok":true,"status":"running"})).into_response() }
@@ -360,7 +376,8 @@ pub async fn portal_restart(State(state): State<Arc<AppState>>, Path(id): Path<S
 /// POST /api/portal/tenants/:id/stop - Stop tenant.
 pub async fn portal_stop(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let mut data = load_tenants(&state);
     match data.tenants.iter_mut().find(|t| t.id == id) {
         Some(t) => { t.status = crate::tenants::TenantStatus::Stopped; let _ = save_tenants(&state, &data); info!(tenant_id = %id, "Stopped tenant via portal"); Json(serde_json::json!({"ok":true,"status":"stopped"})).into_response() }
@@ -371,7 +388,8 @@ pub async fn portal_stop(State(state): State<Arc<AppState>>, Path(id): Path<Stri
 /// DELETE /api/portal/tenants/:id - Delete tenant.
 pub async fn portal_delete_tenant(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let mut data = load_tenants(&state);
     let before = data.tenants.len();
     data.tenants.retain(|t| t.id != id);
@@ -397,7 +415,8 @@ pub struct PortalRemoveChannelRequest {
 /// POST /api/portal/tenants/:id/channels - Add channel.
 pub async fn portal_add_channel(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalAddChannelRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let mut data = load_tenants(&state);
     let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
     if tenant.channels.len() as u32 >= tenant.max_channels { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Channel limit reached"}))).into_response(); }
@@ -418,7 +437,8 @@ pub async fn portal_add_channel(State(state): State<Arc<AppState>>, Path(id): Pa
 /// DELETE /api/portal/tenants/:id/channels - Remove channel.
 pub async fn portal_remove_channel(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalRemoveChannelRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
     let mut data = load_tenants(&state);
     let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
     let before = tenant.channels.len();
@@ -510,12 +530,24 @@ pub async fn portal_delete_user(State(state): State<Arc<AppState>>, Path(user_em
     if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
     let target = user_email.to_lowercase();
     let mut data = load_tenants(&state);
-    let before = data.users.len();
+    // Check if user exists
+    if !data.users.iter().any(|u| u.email.to_lowercase() == target) {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"User not found"}))).into_response();
+    }
+    // Find tenants where user is a member
+    let member_tenants: Vec<String> = data.tenants.iter()
+        .filter(|t| t.members.iter().any(|m| m.email.to_lowercase() == target))
+        .map(|t| t.name.clone())
+        .collect();
+    // Remove user from all tenant members
+    for tenant in data.tenants.iter_mut() {
+        tenant.members.retain(|m| m.email.to_lowercase() != target);
+    }
+    // Remove global user
     data.users.retain(|u| u.email.to_lowercase() != target);
-    if data.users.len() == before { return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"User not found"}))).into_response(); }
     let _ = save_tenants(&state, &data);
-    info!(email = %target, "Deleted portal user");
-    Json(serde_json::json!({"ok":true})).into_response()
+    info!(email = %target, removed_from = ?member_tenants, "Deleted portal user and removed from tenants");
+    Json(serde_json::json!({"ok":true,"removed_from_tenants":member_tenants})).into_response()
 }
 
 // ---------------------------------------------------------------------------
@@ -993,13 +1025,17 @@ async function openDetail(id){
 }
 function renderDetailPage(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
+  const isOwner=!isAdmin&&(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
+  const canEdit=isAdmin||isOwner;
   document.getElementById('pageTitle').innerHTML=`<span>${t.name}</span>`;
-  const ha=isAdmin?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="doRestart()">Restart</button><button class="btn-g" onclick="doStop()">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="doDeleteTenant()">Delete</button>`:'';
+  const ha=canEdit?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="doRestart()">Restart</button><button class="btn-g" onclick="doStop()">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="doDeleteTenant()">Delete</button>`:'';
   document.getElementById('headerActions').innerHTML=ha;
   renderDetailBody();
 }
 async function renderDetailBody(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
+  const isOwner=!isAdmin&&(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
+  const canEdit=isAdmin||isOwner;
   const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> &gt; ${t.name}</div>`;
   const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> &middot; <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
   const TABS=['Overview','Config','Channels','Usage','Members'];
@@ -1043,7 +1079,9 @@ function renderOverview(t){
 // Tab: Config
 async function renderConfig(t){
   const isAdmin=S.role==='admin';
-  const dis=isAdmin?'':'disabled';
+  const isOwner=(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
+  const canEdit=isAdmin||isOwner;
+  const dis=canEdit?'':'disabled';
   // Load providers from system API
   let provOpts=`<option value="${t.provider}">${t.provider}</option>`;
   try{const pd=await api('GET','/api/portal/system/providers');const provs=pd.providers||[];
@@ -1052,8 +1090,8 @@ async function renderConfig(t){
   let html=`<div class="config-section"><h3>AI Provider</h3>
     <div class="config-row"><div class="fg"><label>Provider</label><select id="cfgProvider" ${dis} onchange="loadModelsForProvider()">${provOpts}</select></div><div class="fg"><label>Model</label><select id="cfgModel" ${dis}><option value="${t.model||''}">${t.model||'Select model'}</option></select></div></div>
     <div class="config-row"><div class="fg"><label>Temperature</label><input type="text" id="cfgTemp" value="${t.temperature}" ${dis} style="width:120px"></div><div class="fg"><label>API Key</label><input type="password" id="cfgApiKey" value="${t.api_key||''}" placeholder="Provider API key" ${dis}></div></div>`;
-  if(isAdmin){html+=`<div style="margin-top:12px"><button class="btn-o" onclick="saveConfig()">Save Config</button></div>`}
-  else{html+=`<div class="warn">Configuration changes are managed by the system administrator.</div>`}
+  if(canEdit){html+=`<div style="margin-top:12px"><button class="btn-o" onclick="saveConfig()">Save Config</button></div>`}
+  else{html+=`<div class="warn">Configuration changes are managed by the tenant owner or admin.</div>`}
   html+=`</div>
   <div class="config-section"><h3>Quotas</h3>
     <div class="config-row"><div class="fg"><label>Messages per Day</label><input type="text" value="${fmt(t.max_messages_per_day)}" disabled></div><div class="fg"><label>Max Channels</label><input type="text" value="${fmt(t.max_channels)}" disabled></div></div>
@@ -1074,26 +1112,28 @@ async function loadModelsForProvider(){
 // Tab: Channels
 async function renderChannels(t){
   const isAdmin=S.role==='admin';
+  const isOwner=(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
+  const canEdit=isAdmin||isOwner;
   const tenantCh=t.channels||[];
   // Load system channels
   let sysCh=[];
   try{const d=await api('GET','/api/portal/system/channels');sysCh=d.channels||[]}catch(e){}
   // Map tenant channels with system info
-  const addBtn=isAdmin?`<button class="btn-o" onclick="openAddSystemChannel()">+ Add Channel</button>`:'';
+  const addBtn=canEdit?`<button class="btn-o" onclick="openAddSystemChannel()">+ Add Channel</button>`:'';
   const cnt=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><h3 style="font-size:1rem;font-weight:700">Channels</h3><p style="font-size:.8rem;color:var(--d)">${tenantCh.length} / ${fmt(t.max_channels)} channels connected</p></div>${addBtn}</div>`;
   // Active channels
   let html=cnt;
   if(tenantCh.length>0){
     const rows=tenantCh.map(c=>{const sys=sysCh.find(s=>s.name===c.channel_type)||{};
-      const del=isAdmin?`<button class="btn-r" onclick="removeChannel('${c.name}')">Remove</button>`:'';
+      const del=canEdit?`<button class="btn-r" onclick="removeChannel('${c.name}')">Remove</button>`:'';
       const status=sys.configured?'<span class="badge running">Configured</span>':'<span class="badge plan">Pending</span>';
       return `<tr><td style="text-transform:capitalize;font-weight:500">${sys.display_name||c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td>${status}</td><td>${del}</td></tr>`}).join('');
-    html+=`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th>${isAdmin?'<th>Actions</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
+    html+=`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th>${canEdit?'<th>Actions</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
   } else {
     html+=`<div class="empty"><div class="empty-icon">(( ))</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`;
   }
   // Available system channels
-  if(isAdmin && sysCh.length>0){
+  if(canEdit && sysCh.length>0){
     html+=`<div style="margin-top:24px"><h3 style="font-size:1rem;font-weight:700;margin-bottom:12px">Available Channels (${sysCh.length})</h3>`;
     const cats=[...new Set(sysCh.map(c=>c.category))];
     cats.forEach(cat=>{
@@ -1103,7 +1143,7 @@ async function renderChannels(t){
       chs.forEach(c=>{const connected=tenantCh.some(tc=>tc.channel_type===c.name);
         const badge=connected?'running':c.configured?'plan':'stopped';
         const label=connected?'Connected':c.configured?'Available':'Not Configured';
-        html+=`<div style="padding:6px 12px;background:var(--bg2);border:1px solid var(--b);border-radius:8px;font-size:.8rem;display:flex;align-items:center;gap:6px"><span style="font-weight:500">${c.display_name}</span><span class="badge ${badge}" style="font-size:.65rem;padding:2px 6px">${label}</span>`;if(!connected&&isAdmin)html+=`<button class="btn-g" style="padding:2px 8px;font-size:.7rem" onclick="addSystemChannel('${c.name}','${c.display_name}')">Add</button>`;html+=`</div>`;
+        html+=`<div style="padding:6px 12px;background:var(--bg2);border:1px solid var(--b);border-radius:8px;font-size:.8rem;display:flex;align-items:center;gap:6px"><span style="font-weight:500">${c.display_name}</span><span class="badge ${badge}" style="font-size:.65rem;padding:2px 6px">${label}</span>`;if(!connected&&canEdit)html+=`<button class="btn-g" style="padding:2px 8px;font-size:.7rem" onclick="addSystemChannel('${c.name}','${c.display_name}')">Add</button>`;html+=`</div>`;
       });html+=`</div></div>`;
     });html+=`</div>`;
   }
@@ -1129,11 +1169,13 @@ function renderUsage(t){
 
 // Tab: Members
 function renderMembersTab(t,isAdmin){
-  const addBtn=isAdmin?`<button class="btn-o" onclick="openModal('addMemberModal')">+ Add Member</button>`:'';
+  const isOwner=(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
+  const canEdit=isAdmin||isOwner;
+  const addBtn=canEdit?`<button class="btn-o" onclick="openModal('addMemberModal')">+ Add Member</button>`:'';
   const header=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:1rem;font-weight:700">Members</h3>${addBtn}</div>`;
   const rows=(t.members||[]).map(m=>{
-    const roleHtml=isAdmin?`<select class="role-sel" onchange="changeRole('${m.email}',this.value)">${ROLES.map(r=>`<option value="${r.toLowerCase()}"${m.role===r.toLowerCase()?' selected':''}>${r}</option>`).join('')}</select>`:`<span class="badge plan">${m.role.charAt(0).toUpperCase()+m.role.slice(1)}</span>`;
-    const actions=isAdmin?`<button class="btn-r" onclick="removeMember('${m.email}')">Remove</button>`:'';
+    const roleHtml=canEdit?`<select class="role-sel" onchange="changeRole('${m.email}',this.value)">${ROLES.map(r=>`<option value="${r.toLowerCase()}"${m.role===r.toLowerCase()?' selected':''}>${r}</option>`).join('')}</select>`:`<span class="badge plan">${m.role.charAt(0).toUpperCase()+m.role.slice(1)}</span>`;
+    const actions=canEdit?`<button class="btn-r" onclick="removeMember('${m.email}')">Remove</button>`:'';
     return `<tr><td style="font-weight:500">${m.email}</td><td>${roleHtml}</td><td style="color:var(--d)">${fmtDate(m.added_at)}</td><td>${actions}</td></tr>`;
   }).join('');
   return header+`<table class="dt"><thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -1166,22 +1208,38 @@ async function renderMembers(){
 }
 
 // Users Page
+let editingUser=null;
 async function renderUsers(){
   const d=await api('GET','/api/portal/users');const us=d.users||[];
-  const rows=us.map(u=>`<tr><td style="font-weight:500">${u.display_name||u.email}</td><td style="color:var(--d)">${u.email}</td><td><span class="badge ${u.role==='admin'?'running':'plan'}">${u.role}</span></td><td><span class="badge plan">${u.plan_id||'none'}</span></td><td>${u.tenant_count||0} / ${fmt(u.max_tenants)}</td><td>${u.has_password?'Yes':'No'}</td><td style="color:var(--d);font-size:.8rem">${u.last_login?fmtDate(u.last_login):'Never'}</td><td><button class="btn-r" onclick="deleteUser('${u.email}')">Delete</button></td></tr>`).join('');
+  const pd=await api('GET','/api/portal/plans');const plans=pd.plans||[];
+  const rows=us.map(u=>{
+    if(editingUser===u.email){
+      const planOpts=plans.map(p=>`<option value="${p.id}"${u.plan_id===p.id?' selected':''}>${p.name}</option>`).join('');
+      return `<tr style="background:var(--ol)"><td colspan="8"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0"><strong>${u.email}</strong><select id="euRole"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select><select id="euPlan">${planOpts}</select><input type="password" id="euPass" placeholder="New password (optional)" style="width:160px"><button class="btn-o" onclick="saveEditUser('${u.email}')">Save</button><button class="btn-cancel" onclick="editingUser=null;renderUsers()">Cancel</button></div></td></tr>`;
+    }
+    return `<tr><td style="font-weight:500">${u.display_name||u.email}</td><td style="color:var(--d)">${u.email}</td><td><span class="badge ${u.role==='admin'?'running':'plan'}">${u.role}</span></td><td><span class="badge plan">${u.plan_id||'none'}</span></td><td>${u.tenant_count||0} / ${fmt(u.max_tenants)}</td><td>${u.has_password?'Yes':'No'}</td><td style="color:var(--d);font-size:.8rem">${u.last_login?fmtDate(u.last_login):'Never'}</td><td><button class="btn-g" onclick="editingUser='${u.email}';renderUsers()">Edit</button> <button class="btn-r" onclick="deleteUser('${u.email}',${u.tenant_count||0})">Delete</button></td></tr>`;
+  }).join('');
   document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total Users: <span class="sv">${us.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Plan</th><th>Tenants</th><th>Password</th><th>Last Login</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function openCreateUserModal(){const d=await api('GET','/api/portal/plans');const plans=d.plans||[];const sel=document.getElementById('cuPlan');sel.innerHTML=plans.map(p=>`<option value="${p.id}"${p.is_default?' selected':''}>${p.name} (${p.price_label||'Free'})</option>`).join('');openModal('createUserModal')}
 async function doCreateUser(){const email=document.getElementById('cuEmail').value.trim(),name=document.getElementById('cuName').value.trim(),pass=document.getElementById('cuPass').value,role=document.getElementById('cuRole').value,plan=document.getElementById('cuPlan').value;if(!email){alert('Email is required');return}const body={email,role,plan_id:plan};if(name)body.display_name=name;if(pass)body.password=pass;const d=await api('POST','/api/portal/users',body);if(d.ok){closeModal('createUserModal');document.getElementById('cuEmail').value='';document.getElementById('cuName').value='';document.getElementById('cuPass').value='';renderUsers()}else{alert(d.error||'Failed')}}
-async function deleteUser(email){if(!confirm('Delete user "'+email+'"?'))return;const d=await api('DELETE','/api/portal/users/'+encodeURIComponent(email));if(d.ok)renderUsers();else alert(d.error||'Failed')}
+async function saveEditUser(email){const body={email,role:document.getElementById('euRole').value,plan_id:document.getElementById('euPlan').value};const pw=document.getElementById('euPass').value;if(pw)body.password=pw;const d=await api('PUT','/api/portal/users/'+encodeURIComponent(email),body);if(d.ok){editingUser=null;renderUsers()}else{alert(d.error||'Failed')}}
+async function deleteUser(email,tenantCount){const msg=tenantCount>0?`Delete user "${email}"?\n\nThis user is a member of ${tenantCount} tenant(s). They will be removed from all tenants.`:`Delete user "${email}"?`;if(!confirm(msg))return;const d=await api('DELETE','/api/portal/users/'+encodeURIComponent(email));if(d.ok){if(d.removed_from_tenants&&d.removed_from_tenants.length>0)alert('User removed from tenants: '+d.removed_from_tenants.join(', '));renderUsers()}else alert(d.error||'Failed')}
 
 // Plans Page
+let editingPlan=null;
 async function renderPlans(){
   const d=await api('GET','/api/portal/plans');const ps=d.plans||[];
-  const rows=ps.map(p=>`<tr><td style="font-weight:500">${p.name}${p.is_default?' <span class="badge running" style="font-size:.7rem">Default</span>':''}</td><td>${fmt(p.max_messages_per_day)}</td><td>${fmt(p.max_channels)}</td><td>${fmt(p.max_members)}</td><td>${fmt(p.max_tenants)}</td><td>${p.price_label||'-'}</td><td><button class="btn-r" onclick="deletePlan('${p.id}')">Delete</button></td></tr>`).join('');
+  const rows=ps.map(p=>{
+    if(editingPlan===p.id){
+      return `<tr style="background:var(--ol)"><td colspan="7"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0"><input type="text" id="epName" value="${p.name}" style="width:120px"><input type="number" id="epMsg" value="${p.max_messages_per_day}" style="width:80px" placeholder="Msg/Day"><input type="number" id="epCh" value="${p.max_channels}" style="width:60px" placeholder="Ch"><input type="number" id="epMem" value="${p.max_members}" style="width:60px" placeholder="Mem"><input type="number" id="epTen" value="${p.max_tenants}" style="width:60px" placeholder="Ten"><input type="text" id="epPrice" value="${p.price_label||''}" style="width:80px" placeholder="Price"><button class="btn-o" onclick="saveEditPlan('${p.id}')">Save</button><button class="btn-cancel" onclick="editingPlan=null;renderPlans()">Cancel</button></div></td></tr>`;
+    }
+    return `<tr><td style="font-weight:500">${p.name}${p.is_default?' <span class="badge running" style="font-size:.7rem">Default</span>':''}</td><td>${fmt(p.max_messages_per_day)}</td><td>${fmt(p.max_channels)}</td><td>${fmt(p.max_members)}</td><td>${fmt(p.max_tenants)}</td><td>${p.price_label||'-'}</td><td><button class="btn-g" onclick="editingPlan='${p.id}';renderPlans()">Edit</button> <button class="btn-r" onclick="deletePlan('${p.id}')">Delete</button></td></tr>`;
+  }).join('');
   document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total Plans: <span class="sv">${ps.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Msg/Day</th><th>Channels</th><th>Members</th><th>Tenants</th><th>Price</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function doCreatePlan(){const name=document.getElementById('cpName').value.trim();if(!name){alert('Plan name is required');return}const body={name,max_messages_per_day:parseInt(document.getElementById('cpMsg').value)||500,max_channels:parseInt(document.getElementById('cpCh').value)||5,max_members:parseInt(document.getElementById('cpMem').value)||10,max_tenants:parseInt(document.getElementById('cpTen').value)||5,price_label:document.getElementById('cpPrice').value.trim()};const d=await api('POST','/api/portal/plans',body);if(d.ok){closeModal('createPlanModal');document.getElementById('cpName').value='';renderPlans()}else{alert(d.error||'Failed')}}
+async function saveEditPlan(id){const body={name:document.getElementById('epName').value.trim(),max_messages_per_day:parseInt(document.getElementById('epMsg').value)||500,max_channels:parseInt(document.getElementById('epCh').value)||5,max_members:parseInt(document.getElementById('epMem').value)||10,max_tenants:parseInt(document.getElementById('epTen').value)||5,price_label:document.getElementById('epPrice').value.trim()};const d=await api('PUT','/api/portal/plans/'+encodeURIComponent(id),body);if(d.ok){editingPlan=null;renderPlans()}else{alert(d.error||'Failed')}}
 async function deletePlan(id){if(!confirm('Delete plan "'+id+'"?'))return;const d=await api('DELETE','/api/portal/plans/'+encodeURIComponent(id));if(d.ok)renderPlans();else alert(d.error||'Failed')}
 
 // Create Tenant (self-service)
