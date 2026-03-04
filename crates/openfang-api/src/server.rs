@@ -725,6 +725,10 @@ pub async fn build_router(
         )
         // Tenant self-service portal
         .route(
+            "/portal",
+            axum::routing::get(crate::portal::portal_page),
+        )
+        .route(
             "/portal/",
             axum::routing::get(crate::portal::portal_page),
         )

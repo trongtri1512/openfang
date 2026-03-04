@@ -165,6 +165,7 @@ pub async fn auth(
         || path == "/access/"
         || path == "/api/access/chat"
         // Portal — uses its own session-based auth
+        || path == "/portal"
         || path == "/portal/"
         || path.starts_with("/api/portal/")
     {
