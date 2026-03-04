@@ -1,9 +1,19 @@
 # NOTE: The GHCR image (ghcr.io/rightnow-ai/openfang) is not yet public.
 # For now, build from source using `docker compose up --build`
-# Data is persisted in Docker named volume 'openfang-data'
+# Data is persisted in PostgreSQL database
 
 version: "3.8"
 services:
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-openfang}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openfang}
+      - POSTGRES_DB=${POSTGRES_DB:-openfang}
+    restart: unless-stopped
+
   openfang:
     build: .
     ports:
@@ -13,6 +23,7 @@ services:
     environment:
       - OPENFANG_LISTEN=0.0.0.0:4200
       - OPENFANG_API_KEY=${OPENFANG_API_KEY:-}
+      - DATABASE_URL=${DATABASE_URL:-postgres://openfang:openfang@postgres:5432/openfang}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
@@ -20,7 +31,10 @@ services:
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
+    depends_on:
+      - postgres
     restart: unless-stopped
 
 volumes:
+  pgdata:
   openfang-data:

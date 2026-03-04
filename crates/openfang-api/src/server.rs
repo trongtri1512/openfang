@@ -42,6 +42,49 @@ pub async fn build_router(
     let bridge = channel_bridge::start_channel_bridge(kernel.clone()).await;
 
     let channels_config = kernel.config.channels.clone();
+
+    // Optional PostgreSQL pool for persistent tenant data
+    let db_pool = match std::env::var("DATABASE_URL") {
+        Ok(url) => {
+            match url.parse::<tokio_postgres::Config>() {
+                Ok(pg_config) => {
+                    let mgr = deadpool_postgres::Manager::new(pg_config, tokio_postgres::NoTls);
+                    match deadpool_postgres::Pool::builder(mgr).max_size(4).build() {
+                        Ok(pool) => {
+                            // Test connection and create table
+                            match pool.get().await {
+                                Ok(client) => {
+                                    let _ = client.execute(
+                                        "CREATE TABLE IF NOT EXISTS tenants_config (id INTEGER PRIMARY KEY DEFAULT 1, data JSONB NOT NULL DEFAULT '{\"tenants\":[]}'::jsonb, updated_at TIMESTAMPTZ DEFAULT NOW())",
+                                        &[],
+                                    ).await;
+                                    tracing::info!("Connected to PostgreSQL — tenant data will be persisted");
+                                    Some(pool)
+                                }
+                                Err(e) => {
+                                    tracing::warn!("PostgreSQL connection failed: {e} — falling back to JSON file");
+                                    None
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("PostgreSQL pool creation failed: {e}");
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Invalid DATABASE_URL: {e}");
+                    None
+                }
+            }
+        }
+        Err(_) => {
+            tracing::info!("DATABASE_URL not set — using JSON file for tenant data");
+            None
+        }
+    };
+
     let state = Arc::new(AppState {
         kernel: kernel.clone(),
         started_at: Instant::now(),
@@ -50,6 +93,7 @@ pub async fn build_router(
         channels_config: tokio::sync::RwLock::new(channels_config),
         shutdown_notify: Arc::new(tokio::sync::Notify::new()),
         clawhub_cache: dashmap::DashMap::new(),
+        db_pool,
     });
 
     // CORS: allow localhost origins by default. If API key is set, the API

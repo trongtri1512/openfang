@@ -55,6 +55,8 @@ uuid = { version = "1", features = ["v4", "serde"] }
 
 # Database
 rusqlite = { version = "0.31", features = ["bundled", "serde_json"] }
+tokio-postgres = "0.7"
+deadpool-postgres = "0.14"
 
 # CLI
 clap = { version = "4", features = ["derive"] }

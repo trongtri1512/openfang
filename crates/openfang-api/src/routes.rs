@@ -36,6 +36,8 @@ pub struct AppState {
     /// ClawHub response cache — prevents 429 rate limiting on rapid dashboard refreshes.
     /// Maps cache key → (fetched_at, response_json) with 120s TTL.
     pub clawhub_cache: DashMap<String, (Instant, serde_json::Value)>,
+    /// Optional PostgreSQL pool for persistent tenant data storage.
+    pub db_pool: Option<deadpool_postgres::Pool>,
 }
 
 /// POST /api/agents — Spawn a new agent.
