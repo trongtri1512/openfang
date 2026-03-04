@@ -148,32 +148,27 @@ fn save_tenants_to_file(state: &AppState, data: &TenantsFile) -> Result<(), Stri
 /// Load tenants from PostgreSQL, fallback to JSON file.
 pub(crate) fn load_tenants(state: &AppState) -> TenantsFile {
     if let Some(ref pool) = state.db_pool {
-        // Use a blocking task to run async DB query from sync context
         let pool = pool.clone();
-        let rt = tokio::runtime::Handle::try_current();
-        if let Ok(handle) = rt {
-            let result = std::thread::spawn(move || {
-                handle.block_on(async {
-                    let client = pool.get().await.ok()?;
-                    let row = client
-                        .query_opt("SELECT data FROM tenants_config WHERE id = 1", &[])
-                        .await
-                        .ok()?;
-                    if let Some(row) = row {
-                        let data: serde_json::Value = row.get(0);
-                        serde_json::from_value(data).ok()
-                    } else {
-                        Some(TenantsFile::default())
-                    }
-                })
+        // block_in_place is safe here because we're on a multi-threaded tokio runtime
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let client = pool.get().await.ok()?;
+                let row = client
+                    .query_opt("SELECT data FROM tenants_config WHERE id = 1", &[])
+                    .await
+                    .ok()?;
+                if let Some(row) = row {
+                    let data: serde_json::Value = row.get(0);
+                    serde_json::from_value(data).ok()
+                } else {
+                    Some(TenantsFile::default())
+                }
             })
-            .join()
-            .ok()
-            .flatten();
-            if let Some(data) = result {
-                return data;
-            }
+        });
+        if let Some(data) = result {
+            return data;
         }
+        tracing::warn!("Failed to load from PostgreSQL, falling back to JSON file");
     }
     load_tenants_from_file(state)
 }
@@ -186,25 +181,23 @@ pub(crate) fn save_tenants(state: &AppState, data: &TenantsFile) -> Result<(), S
     if let Some(ref pool) = state.db_pool {
         let pool = pool.clone();
         let json_val = serde_json::to_value(data).map_err(|e| e.to_string())?;
-        let rt = tokio::runtime::Handle::try_current();
-        if let Ok(handle) = rt {
-            let result = std::thread::spawn(move || {
-                handle.block_on(async {
-                    let client = pool.get().await.map_err(|e| format!("DB pool: {e}"))?;
-                    client
-                        .execute(
-                            "INSERT INTO tenants_config (id, data, updated_at) VALUES (1, $1, NOW()) ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = NOW()",
-                            &[&json_val],
-                        )
-                        .await
-                        .map_err(|e| format!("DB save: {e}"))?;
-                    Ok::<(), String>(())
-                })
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let client = pool.get().await.map_err(|e| format!("DB pool: {e}"))?;
+                client
+                    .execute(
+                        "INSERT INTO tenants_config (id, data, updated_at) VALUES (1, $1, NOW()) ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = NOW()",
+                        &[&json_val],
+                    )
+                    .await
+                    .map_err(|e| format!("DB save: {e}"))?;
+                Ok::<(), String>(())
             })
-            .join()
-            .map_err(|_| "Thread join failed".to_string())?;
-            return result;
+        });
+        if let Err(ref e) = result {
+            tracing::warn!("PostgreSQL save failed: {e} (JSON backup was saved)");
         }
+        return result;
     }
     Ok(())
 }

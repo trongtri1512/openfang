@@ -12,6 +12,12 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-openfang}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openfang}
       - POSTGRES_DB=${POSTGRES_DB:-openfang}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U openfang -d openfang" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   openfang:
@@ -32,7 +38,8 @@ services:
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

@@ -51,20 +51,55 @@ pub async fn build_router(
                     let mgr = deadpool_postgres::Manager::new(pg_config, tokio_postgres::NoTls);
                     match deadpool_postgres::Pool::builder(mgr).max_size(4).build() {
                         Ok(pool) => {
-                            // Test connection and create table
-                            match pool.get().await {
-                                Ok(client) => {
-                                    let _ = client.execute(
-                                        "CREATE TABLE IF NOT EXISTS tenants_config (id INTEGER PRIMARY KEY DEFAULT 1, data JSONB NOT NULL DEFAULT '{\"tenants\":[]}'::jsonb, updated_at TIMESTAMPTZ DEFAULT NOW())",
-                                        &[],
-                                    ).await;
-                                    tracing::info!("Connected to PostgreSQL — tenant data will be persisted");
-                                    Some(pool)
+                            // Retry connection up to 10 times (PostgreSQL may still be starting)
+                            let mut connected = false;
+                            for attempt in 1..=10 {
+                                match pool.get().await {
+                                    Ok(client) => {
+                                        let _ = client.execute(
+                                            "CREATE TABLE IF NOT EXISTS tenants_config (id INTEGER PRIMARY KEY DEFAULT 1, data JSONB NOT NULL DEFAULT '{\"tenants\":[]}'::jsonb, updated_at TIMESTAMPTZ DEFAULT NOW())",
+                                            &[],
+                                        ).await;
+                                        tracing::info!("Connected to PostgreSQL (attempt {attempt}) - tenant data will be persisted");
+
+                                        // Migrate existing tenants.json into DB if DB is empty
+                                        let row = client.query_opt("SELECT data FROM tenants_config WHERE id = 1", &[]).await;
+                                        let db_empty = match &row {
+                                            Ok(Some(r)) => {
+                                                let v: serde_json::Value = r.get(0);
+                                                v.get("tenants").and_then(|t| t.as_array()).map_or(true, |a| a.is_empty())
+                                            }
+                                            _ => true,
+                                        };
+                                        if db_empty {
+                                            let json_path = kernel.config.home_dir.join("tenants.json");
+                                            if json_path.exists() {
+                                                if let Ok(content) = std::fs::read_to_string(&json_path) {
+                                                    if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&content) {
+                                                        let has_tenants = json_val.get("tenants").and_then(|t| t.as_array()).map_or(false, |a| !a.is_empty());
+                                                        if has_tenants {
+                                                            let _ = client.execute(
+                                                                "INSERT INTO tenants_config (id, data, updated_at) VALUES (1, $1, NOW()) ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = NOW()",
+                                                                &[&json_val],
+                                                            ).await;
+                                                            tracing::info!("Migrated existing tenants.json data into PostgreSQL");
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        connected = true;
+                                        break;
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("PostgreSQL connection attempt {attempt}/10 failed: {e}");
+                                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                                    }
                                 }
-                                Err(e) => {
-                                    tracing::warn!("PostgreSQL connection failed: {e} — falling back to JSON file");
-                                    None
-                                }
+                            }
+                            if connected { Some(pool) } else {
+                                tracing::error!("PostgreSQL connection failed after 10 attempts - falling back to JSON file");
+                                None
                             }
                         }
                         Err(e) => {
@@ -80,7 +115,7 @@ pub async fn build_router(
             }
         }
         Err(_) => {
-            tracing::info!("DATABASE_URL not set — using JSON file for tenant data");
+            tracing::info!("DATABASE_URL not set - using JSON file for tenant data");
             None
         }
     };
