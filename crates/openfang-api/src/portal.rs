@@ -229,7 +229,7 @@ pub async fn portal_tenant_detail(State(state): State<Arc<AppState>>, Path(id): 
                 return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
             }
             let members: Vec<serde_json::Value> = t.members.iter().map(|m| serde_json::json!({"email":m.email,"role":m.role,"display_name":m.display_name,"added_at":m.added_at,"last_login":m.last_login,"has_password":m.password_hash.is_some()})).collect();
-            Json(serde_json::json!({"id":t.id,"name":t.name,"slug":t.slug,"status":t.status,"plan":t.plan,"provider":t.provider,"model":t.model,"temperature":t.temperature,"messages_today":t.messages_today,"max_messages_per_day":t.max_messages_per_day,"max_channels":t.max_channels,"max_members":t.max_members,"channels":t.channels,"members":members,"created_at":t.created_at,"version":t.version,"access_token":t.access_token,"api_key":t.api_key})).into_response()
+            Json(serde_json::json!({"id":t.id,"name":t.name,"slug":t.slug,"status":t.status,"plan":t.plan,"provider":t.provider,"model":t.model,"temperature":t.temperature,"messages_today":t.messages_today,"max_messages_per_day":t.max_messages_per_day,"max_channels":t.max_channels,"max_members":t.max_members,"channels":t.channels,"members":members,"created_at":t.created_at,"version":t.version,"access_token":t.access_token,"api_key":t.api_key,"system_prompt":t.system_prompt,"skills":t.skills,"hands":t.hands,"language":t.language,"webhook_url":t.webhook_url})).into_response()
         }
         None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response(),
     }
@@ -1114,7 +1114,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 let S=null,T=[],D=null,CTab='overview';
 const ROLES=['Owner','Manager','Contributor','Viewer'];
 const INF=4294967295;
-function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(S)o.headers.Authorization='Bearer '+S.token;if(b)o.body=JSON.stringify(b);return fetch(p,o).then(r=>r.json())}
+function api(m,p,b){const o={method:m,headers:{}};if(S)o.headers.Authorization='Bearer '+S.token;if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b)}return fetch(p,o).then(r=>r.json()).catch(e=>({error:e.message}))}
 function fmt(v){return v>=INF?'Unlimited':v}
 function fmtDate(d){if(!d)return'-';try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}}
 
