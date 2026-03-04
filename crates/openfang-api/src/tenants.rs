@@ -37,6 +37,22 @@ pub struct Tenant {
     pub access_token: String,
     pub created_at: String,
     pub version: String,
+    /// AI provider API key (masked in JSON output, stored encrypted).
+    #[serde(default)]
+    pub api_key: Option<String>,
+    /// Per-tenant channel configurations.
+    #[serde(default)]
+    pub channels: Vec<TenantChannel>,
+}
+
+/// A channel configured for a specific tenant.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TenantChannel {
+    pub name: String,
+    pub channel_type: String,
+    pub enabled: bool,
+    pub config: serde_json::Value,
+    pub added_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -263,6 +279,8 @@ pub async fn create_tenant(
         access_token: generate_access_token(),
         created_at: now_iso(),
         version: format!("openfang-{}", env!("CARGO_PKG_VERSION")),
+        api_key: None,
+        channels: vec![],
     };
 
     let mut data = load_tenants(&state);
@@ -519,3 +537,190 @@ pub async fn remove_member(
     let _ = save_tenants(&state, &data);
     Json(serde_json::json!({"members": members})).into_response()
 }
+
+// ---------------------------------------------------------------------------
+// Config TOML
+// ---------------------------------------------------------------------------
+
+/// GET /api/tenants/:id/config-toml — Get tenant config as TOML string.
+pub async fn tenant_config_toml(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let data = load_tenants(&state);
+    match data.tenants.iter().find(|t| t.id == id) {
+        Some(tenant) => {
+            let toml_str = format!(
+                "# Tenant: {}\n# Slug: {}\n# Plan: {}\n\n[agent]\nprovider = \"{}\"\nmodel = \"{}\"\ntemperature = {}\n\n[quota]\nmax_messages_per_day = {}\nmax_channels = {}\nmax_members = {}\n",
+                tenant.name, tenant.slug, tenant.plan,
+                tenant.provider, tenant.model, tenant.temperature,
+                if tenant.max_messages_per_day >= u32::MAX { "unlimited".to_string() } else { tenant.max_messages_per_day.to_string() },
+                if tenant.max_channels >= u32::MAX { "unlimited".to_string() } else { tenant.max_channels.to_string() },
+                if tenant.max_members >= u32::MAX { "unlimited".to_string() } else { tenant.max_members.to_string() },
+            );
+            Json(serde_json::json!({"toml": toml_str})).into_response()
+        },
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Tenant not found"}))).into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tenant Channels CRUD
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct AddChannelRequest {
+    pub channel_type: String,
+    pub name: Option<String>,
+    #[serde(default)]
+    pub config: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateChannelRequest {
+    pub enabled: Option<bool>,
+    pub config: Option<serde_json::Value>,
+}
+
+/// GET /api/tenants/:id/channels — List tenant channels.
+pub async fn list_tenant_channels(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let data = load_tenants(&state);
+    match data.tenants.iter().find(|t| t.id == id) {
+        Some(tenant) => {
+            let limit = if tenant.max_channels >= u32::MAX { "∞".to_string() } else { tenant.max_channels.to_string() };
+            Json(serde_json::json!({
+                "channels": tenant.channels,
+                "count": tenant.channels.len(),
+                "limit": limit,
+            })).into_response()
+        },
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Tenant not found"}))).into_response(),
+    }
+}
+
+/// POST /api/tenants/:id/channels — Add a channel to tenant.
+pub async fn add_tenant_channel(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<AddChannelRequest>,
+) -> impl IntoResponse {
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) {
+        Some(t) => t,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Tenant not found"}))).into_response(),
+    };
+
+    if tenant.channels.len() as u32 >= tenant.max_channels {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({
+            "error": format!("Channel limit reached ({}/{})", tenant.channels.len(), tenant.max_channels)
+        }))).into_response();
+    }
+
+    // Check duplicate
+    if tenant.channels.iter().any(|c| c.channel_type == req.channel_type && c.enabled) {
+        return (StatusCode::CONFLICT, Json(serde_json::json!({"error": "Channel type already active"}))).into_response();
+    }
+
+    let channel = TenantChannel {
+        name: req.name.unwrap_or_else(|| req.channel_type.clone()),
+        channel_type: req.channel_type,
+        enabled: true,
+        config: req.config,
+        added_at: now_iso(),
+    };
+
+    tenant.channels.push(channel);
+    tenant.channels_active = tenant.channels.iter().filter(|c| c.enabled).count() as u32;
+    let channels = tenant.channels.clone();
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Added channel");
+    (StatusCode::CREATED, Json(serde_json::json!({"channels": channels}))).into_response()
+}
+
+/// PUT /api/tenants/:id/channels/:channel_name — Update channel (enable/disable).
+pub async fn update_tenant_channel(
+    State(state): State<Arc<AppState>>,
+    Path((id, channel_name)): Path<(String, String)>,
+    Json(req): Json<UpdateChannelRequest>,
+) -> impl IntoResponse {
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) {
+        Some(t) => t,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Tenant not found"}))).into_response(),
+    };
+
+    let channel = match tenant.channels.iter_mut().find(|c| c.name == channel_name || c.channel_type == channel_name) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Channel not found"}))).into_response(),
+    };
+
+    if let Some(enabled) = req.enabled { channel.enabled = enabled; }
+    if let Some(config) = req.config { channel.config = config; }
+
+    tenant.channels_active = tenant.channels.iter().filter(|c| c.enabled).count() as u32;
+    let channels = tenant.channels.clone();
+    let _ = save_tenants(&state, &data);
+    Json(serde_json::json!({"channels": channels})).into_response()
+}
+
+/// DELETE /api/tenants/:id/channels/:channel_name — Remove channel.
+pub async fn delete_tenant_channel(
+    State(state): State<Arc<AppState>>,
+    Path((id, channel_name)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) {
+        Some(t) => t,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Tenant not found"}))).into_response(),
+    };
+
+    let before = tenant.channels.len();
+    tenant.channels.retain(|c| c.name != channel_name && c.channel_type != channel_name);
+    if tenant.channels.len() == before {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Channel not found"}))).into_response();
+    }
+
+    tenant.channels_active = tenant.channels.iter().filter(|c| c.enabled).count() as u32;
+    let channels = tenant.channels.clone();
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, "Removed channel");
+    Json(serde_json::json!({"channels": channels})).into_response()
+}
+
+// ---------------------------------------------------------------------------
+// Usage
+// ---------------------------------------------------------------------------
+
+/// GET /api/tenants/:id/usage — Detailed usage metrics.
+pub async fn tenant_usage(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let data = load_tenants(&state);
+    let tenant = match data.tenants.iter().find(|t| t.id == id) {
+        Some(t) => t,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Tenant not found"}))).into_response(),
+    };
+
+    let uptime_secs = state.started_at.elapsed().as_secs();
+
+    Json(serde_json::json!({
+        "messages_today": tenant.messages_today,
+        "messages_limit": if tenant.max_messages_per_day >= u32::MAX { 0 } else { tenant.max_messages_per_day },
+        "messages_unlimited": tenant.max_messages_per_day >= u32::MAX,
+        "channels_active": tenant.channels_active,
+        "channels_limit": tenant.max_channels,
+        "channels_unlimited": tenant.max_channels >= u32::MAX,
+        "members_count": tenant.members.len(),
+        "members_limit": tenant.max_members,
+        "members_unlimited": tenant.max_members >= u32::MAX,
+        "uptime_seconds": uptime_secs,
+        "plan": tenant.plan.to_string(),
+        "created_at": tenant.created_at,
+        "api_calls_today": 0,
+    })).into_response()
+}
+

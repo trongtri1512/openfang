@@ -696,6 +696,24 @@ pub async fn build_router(
             "/api/tenants/{id}/members/{email}",
             axum::routing::delete(crate::tenants::remove_member),
         )
+        .route(
+            "/api/tenants/{id}/config-toml",
+            axum::routing::get(crate::tenants::tenant_config_toml),
+        )
+        .route(
+            "/api/tenants/{id}/channels",
+            axum::routing::get(crate::tenants::list_tenant_channels)
+                .post(crate::tenants::add_tenant_channel),
+        )
+        .route(
+            "/api/tenants/{id}/channels/{channel_name}",
+            axum::routing::put(crate::tenants::update_tenant_channel)
+                .delete(crate::tenants::delete_tenant_channel),
+        )
+        .route(
+            "/api/tenants/{id}/usage",
+            axum::routing::get(crate::tenants::tenant_usage),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",
