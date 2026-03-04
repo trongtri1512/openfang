@@ -450,6 +450,33 @@ pub async fn portal_remove_channel(State(state): State<Arc<AppState>>, Path(id):
     Json(serde_json::json!({"ok":true})).into_response()
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PortalUpdateChannelConfigRequest {
+    pub channel_name: String,
+    pub config: serde_json::Value,
+}
+
+/// PUT /api/portal/tenants/:id/channels/config - Update per-tenant channel config (Bot Token, credentials, etc.).
+pub async fn portal_update_channel_config(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<PortalUpdateChannelConfigRequest>) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data_check = load_tenants(&state);
+    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
+    let mut data = load_tenants(&state);
+    let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    let channel = match tenant.channels.iter_mut().find(|c| c.name == req.channel_name) { Some(c) => c, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel not found"}))).into_response() };
+    // Merge new config into existing (preserves fields not in request)
+    if let (Some(existing), Some(new_obj)) = (channel.config.as_object_mut(), req.config.as_object()) {
+        for (k, v) in new_obj {
+            existing.insert(k.clone(), v.clone());
+        }
+    } else {
+        channel.config = req.config;
+    }
+    let _ = save_tenants(&state, &data);
+    info!(tenant_id = %id, channel = %req.channel_name, "Updated per-tenant channel config");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
 // ---------------------------------------------------------------------------
 // Portal: Users CRUD (admin-only)
 // ---------------------------------------------------------------------------
@@ -1110,6 +1137,7 @@ async function loadModelsForProvider(){
 }
 
 // Tab: Channels
+let configuringChannel=null;
 async function renderChannels(t){
   const isAdmin=S.role==='admin';
   const isOwner=(t.members||[]).some(m=>m.email.toLowerCase()===S.email.toLowerCase()&&(m.role==='owner'||m.role==='manager'));
@@ -1125,9 +1153,26 @@ async function renderChannels(t){
   let html=cnt;
   if(tenantCh.length>0){
     const rows=tenantCh.map(c=>{const sys=sysCh.find(s=>s.name===c.channel_type)||{};
+      const cfgKeys=Object.keys(c.config||{}).filter(k=>c.config[k]);
+      const hasConfig=cfgKeys.length>0;
+      const statusBadge=hasConfig?'<span class="badge running">Configured</span>':'<span class="badge stopped">Not Configured</span>';
+      const cfgBtn=canEdit?`<button class="btn-g" onclick="configureChannel('${c.name}','${c.channel_type}')">Configure</button>`:'';
       const del=canEdit?`<button class="btn-r" onclick="removeChannel('${c.name}')">Remove</button>`:'';
-      const status=sys.configured?'<span class="badge running">Configured</span>':'<span class="badge plan">Pending</span>';
-      return `<tr><td style="text-transform:capitalize;font-weight:500">${sys.display_name||c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td>${status}</td><td>${del}</td></tr>`}).join('');
+      let row=`<tr><td style="text-transform:capitalize;font-weight:500">${sys.display_name||c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td>${statusBadge}</td><td>${cfgBtn} ${del}</td></tr>`;
+      // If configuring this channel, show config form below
+      if(configuringChannel===c.name){
+        const fields=(sys.fields||[]).filter(f=>!f.advanced);
+        let formHtml=`<tr><td colspan="4" style="background:var(--bg2);padding:16px"><div style="margin-bottom:8px;font-weight:600">Configure ${sys.display_name||c.channel_type}</div><div style="display:flex;flex-direction:column;gap:8px">`;
+        fields.forEach(f=>{
+          const val=(c.config||{})[f.key]||'';
+          const inputType=f.type==='secret'?'password':'text';
+          formHtml+=`<div style="display:flex;align-items:center;gap:8px"><label style="min-width:140px;font-size:.85rem;font-weight:500">${f.label}${f.required?' *':''}</label><input type="${inputType}" class="chcfg" data-key="${f.key}" value="${val}" placeholder="${f.placeholder||''}" style="flex:1;max-width:400px"></div>`;
+        });
+        formHtml+=`</div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn-o" onclick="saveChannelConfig('${c.name}')">Save Config</button><button class="btn-cancel" onclick="configuringChannel=null;renderDetailBody()">Cancel</button></div></td></tr>`;
+        row+=formHtml;
+      }
+      return row;
+    }).join('');
     html+=`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th>${canEdit?'<th>Actions</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
   } else {
     html+=`<div class="empty"><div class="empty-icon">(( ))</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`;
@@ -1150,7 +1195,15 @@ async function renderChannels(t){
   return html;
 }
 function openAddSystemChannel(){CTab='channels';renderDetailBody()}
-async function addSystemChannel(type,name){const body={channel_type:type,name:name};const d=await api('POST','/api/portal/tenants/'+D.id+'/channels',body);if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
+async function addSystemChannel(type,name){const body={channel_type:type,name:name};const d=await api('POST','/api/portal/tenants/'+D.id+'/channels',body);if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);configuringChannel=name;renderDetailBody()}else{alert(d.error||'Failed')}}
+function configureChannel(name,type){configuringChannel=name;renderDetailBody()}
+async function saveChannelConfig(channelName){
+  const inputs=document.querySelectorAll('.chcfg');
+  const config={};
+  inputs.forEach(i=>{if(i.value)config[i.dataset.key]=i.value});
+  const d=await api('PUT','/api/portal/tenants/'+D.id+'/channels/config',{channel_name:channelName,config});
+  if(d.ok){configuringChannel=null;D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody();alert('Channel config saved!')}else{alert(d.error||'Failed')}
+}
 
 // Tab: Usage
 function renderUsage(t){

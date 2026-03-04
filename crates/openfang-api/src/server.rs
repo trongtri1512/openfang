@@ -867,6 +867,10 @@ pub async fn build_router(
                 .delete(crate::portal::portal_remove_channel),
         )
         .route(
+            "/api/portal/tenants/{id}/channels/config",
+            axum::routing::put(crate::portal::portal_update_channel_config),
+        )
+        .route(
             "/api/portal/users",
             axum::routing::get(crate::portal::portal_list_users)
                 .post(crate::portal::portal_create_user),
