@@ -236,7 +236,7 @@ pub async fn portal_tenant_detail(State(state): State<Arc<AppState>>, Path(id): 
 }
 
 /// Check if session user is admin or owner/manager of a specific tenant.
-fn is_admin_or_owner(session: &PortalSession, data: &crate::tenants::TenantsFile, tenant_id: &str) -> bool {
+fn is_admin_or_owner(session: &SessionPayload, data: &crate::tenants::TenantsFile, tenant_id: &str) -> bool {
     if session.role == "admin" { return true; }
     let email = session.email.to_lowercase();
     data.tenants.iter().find(|t| t.id == tenant_id)
