@@ -801,6 +801,30 @@ fn provider_base_url(provider: &str) -> &'static str {
     }
 }
 
+/// Convert raw LLM provider errors to user-friendly messages.
+fn friendly_llm_error(status: u16, _raw: &str, provider: &str) -> String {
+    match status {
+        429 => format!(
+            "AI đang quá tải (rate limit). Vui lòng thử lại sau vài giây. \
+             Nếu lỗi tiếp tục, hãy liên hệ admin để nâng cấp {} plan.",
+            provider
+        ),
+        401 | 403 => format!(
+            "API key cho {} không hợp lệ hoặc đã hết hạn. \
+             Vui lòng liên hệ admin để kiểm tra cấu hình.",
+            provider
+        ),
+        500..=599 => format!(
+            "AI provider ({}) đang gặp sự cố. Vui lòng thử lại sau.",
+            provider
+        ),
+        _ => format!(
+            "Lỗi từ AI provider {} (HTTP {}). Vui lòng thử lại.",
+            provider, status
+        ),
+    }
+}
+
 /// GET /access/?t=<token> — Serve lightweight WebChat page for a tenant.
 pub async fn tenant_access_page(
     State(state): State<Arc<AppState>>,
@@ -1010,14 +1034,6 @@ pub async fn tenant_access_chat(
     let client = reqwest::Client::new();
     let url = format!("{}/chat/completions", base_url);
 
-    let mut req_builder = client
-        .post(&url)
-        .header("Content-Type", "application/json");
-
-    if !api_key.is_empty() {
-        req_builder = req_builder.header("Authorization", format!("Bearer {}", api_key));
-    }
-
     let llm_body = serde_json::json!({
         "model": tenant.model,
         "messages": messages,
@@ -1025,49 +1041,83 @@ pub async fn tenant_access_chat(
         "temperature": tenant.temperature,
     });
 
-    match req_builder.json(&llm_body).send().await {
-        Ok(resp) => {
-            if !resp.status().is_success() {
-                let status = resp.status();
-                let err_text = resp.text().await.unwrap_or_default();
-                warn!(
-                    tenant = %tenant.name,
-                    provider = %tenant.provider,
-                    status = %status,
-                    "LLM API error"
-                );
+    // Retry logic for rate limits (429)
+    let max_retries = 2u32;
+    let mut last_error = String::new();
+
+    for attempt in 0..=max_retries {
+        let req = client
+            .post(&url)
+            .header("Content-Type", "application/json");
+
+        let req = if !api_key.is_empty() {
+            req.header("Authorization", format!("Bearer {}", api_key))
+        } else {
+            req
+        };
+
+        match req.json(&llm_body).send().await {
+            Ok(resp) => {
+                if resp.status().as_u16() == 429 {
+                    let err_text = resp.text().await.unwrap_or_default();
+                    warn!(
+                        tenant = %tenant.name,
+                        provider = %tenant.provider,
+                        attempt = attempt + 1,
+                        "Rate limited by LLM provider, retrying..."
+                    );
+                    last_error = friendly_llm_error(429, &err_text, &tenant.provider);
+                    if attempt < max_retries {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        continue;
+                    }
+                    return Json(serde_json::json!({"error": last_error})).into_response();
+                }
+
+                if !resp.status().is_success() {
+                    let status = resp.status().as_u16();
+                    let err_text = resp.text().await.unwrap_or_default();
+                    warn!(
+                        tenant = %tenant.name,
+                        provider = %tenant.provider,
+                        status = status,
+                        "LLM API error"
+                    );
+                    return Json(serde_json::json!({
+                        "error": friendly_llm_error(status, &err_text, &tenant.provider)
+                    })).into_response();
+                }
+
+                match resp.json::<serde_json::Value>().await {
+                    Ok(json) => {
+                        let reply = json["choices"][0]["message"]["content"]
+                            .as_str()
+                            .unwrap_or("(empty response)")
+                            .to_string();
+
+                        // Increment message counter
+                        let mut data = load_tenants(&state);
+                        if let Some(t) = data.tenants.iter_mut().find(|t| t.access_token == token) {
+                            t.messages_today = t.messages_today.saturating_add(1);
+                            let _ = save_tenants(&state, &data);
+                        }
+
+                        return Json(serde_json::json!({"reply": reply})).into_response();
+                    }
+                    Err(e) => {
+                        warn!(tenant = %tenant.name, error = %e, "Failed to parse LLM response");
+                        return Json(serde_json::json!({"error": "Không thể đọc phản hồi từ AI. Vui lòng thử lại."})).into_response();
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(tenant = %tenant.name, error = %e, "Failed to connect to LLM provider");
                 return Json(serde_json::json!({
-                    "error": format!("LLM provider error ({}): {}", status, err_text)
+                    "error": "Không thể kết nối tới AI provider. Vui lòng thử lại sau."
                 })).into_response();
             }
-
-            match resp.json::<serde_json::Value>().await {
-                Ok(json) => {
-                    let reply = json["choices"][0]["message"]["content"]
-                        .as_str()
-                        .unwrap_or("(empty response)")
-                        .to_string();
-
-                    // Increment message counter
-                    let mut data = load_tenants(&state);
-                    if let Some(t) = data.tenants.iter_mut().find(|t| t.access_token == token) {
-                        t.messages_today = t.messages_today.saturating_add(1);
-                        let _ = save_tenants(&state, &data);
-                    }
-
-                    Json(serde_json::json!({"reply": reply})).into_response()
-                }
-                Err(e) => {
-                    warn!(tenant = %tenant.name, error = %e, "Failed to parse LLM response");
-                    Json(serde_json::json!({"error": "Failed to parse LLM response"})).into_response()
-                }
-            }
-        }
-        Err(e) => {
-            warn!(tenant = %tenant.name, error = %e, "Failed to connect to LLM provider");
-            Json(serde_json::json!({
-                "error": format!("Failed to connect to LLM provider: {}", e)
-            })).into_response()
         }
     }
+
+    Json(serde_json::json!({"error": last_error})).into_response()
 }
