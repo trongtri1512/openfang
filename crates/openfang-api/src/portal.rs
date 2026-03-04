@@ -1,4 +1,4 @@
-//! Tenant Self-Service Portal ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â role-based access for tenant members.
+﻿//! Tenant Self-Service Portal - role-based access for tenant members.
 //!
 //! Provides a separate `/portal/` UI and `/api/portal/*` API endpoints
 //! for tenant members to view/manage their assigned tenants.
@@ -234,7 +234,7 @@ pub async fn portal_set_password(State(state): State<Arc<AppState>>, Path(id): P
     Json(serde_json::json!({"ok":true})).into_response()
 }
 
-/// PUT /api/portal/tenants/:id/members/role ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Update member role.
+/// PUT /api/portal/tenants/:id/members/role - Update member role.
 pub async fn portal_update_role(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<UpdateRoleRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
     if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
@@ -250,7 +250,7 @@ pub async fn portal_update_role(State(state): State<Arc<AppState>>, Path(id): Pa
     Json(serde_json::json!({"ok":true,"role":new_role})).into_response()
 }
 
-/// POST /api/portal/tenants/:id/members ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Add member to tenant.
+/// POST /api/portal/tenants/:id/members - Add member to tenant.
 pub async fn portal_add_member(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<AddMemberRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
     if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
@@ -275,7 +275,7 @@ pub async fn portal_add_member(State(state): State<Arc<AppState>>, Path(id): Pat
     Json(serde_json::json!({"ok":true})).into_response()
 }
 
-/// DELETE /api/portal/tenants/:id/members ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Remove member from tenant.
+/// DELETE /api/portal/tenants/:id/members - Remove member from tenant.
 pub async fn portal_remove_member(State(state): State<Arc<AppState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<RemoveMemberRequest>) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
     if session.role != "admin" { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin access required"}))).into_response(); }
@@ -306,7 +306,7 @@ const PORTAL_HTML: &str = r##"<!DOCTYPE html>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--o:#FF5C00;--oh:#e65200;--obg:rgba(255,92,0,.08);--ol:#fff7ed;--bg:#fff;--bg2:#f9fafb;--bg3:#f3f4f6;--t:#111827;--d:#6b7280;--m:#9ca3af;--b:#e5e7eb;--g:#22c55e;--gb:#f0fdf4;--gt:#15803d;--r:#ef4444;--rb:#fef2f2;--rt:#dc2626;--pb:#faf5ff;--pt:#7c3aed;--bb:#eff6ff;--bt:#2563eb}
 body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;background:var(--bg2)}
-/* â”€â”€ Login Screen â”€â”€ */
+/* Login Screen */
 .login-screen{display:flex;min-height:100vh;background:var(--bg)}
 .login-left{flex:1;background:var(--bg2);position:relative;display:flex;flex-direction:column;justify-content:center;padding:48px 64px;overflow:hidden}
 .login-left::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.03) 1px,transparent 1px);background-size:40px 40px}
@@ -343,7 +343,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .bl:hover{background:var(--oh)}.bl:disabled{opacity:.5;cursor:not-allowed}
 .em{color:var(--r);font-size:.8rem;margin-top:12px;display:none}
 .lf{margin-top:24px;text-align:center;font-size:.8rem;color:var(--m)}.lf a{color:var(--o);text-decoration:none;font-weight:500}
-/* â”€â”€ Dashboard Layout â”€â”€ */
+/* Dashboard Layout */
 .dashboard{display:none;min-height:100vh}
 .dl{display:flex;min-height:100vh}
 .sb{width:220px;background:var(--bg);border-right:1px solid var(--b);display:flex;flex-direction:column;flex-shrink:0;position:fixed;left:0;top:0;bottom:0;z-index:10}
@@ -360,7 +360,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .mh{padding:20px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--b);background:var(--bg)}
 .mh h1{font-size:1.3rem;font-weight:700;display:flex;align-items:center;gap:10px}
 .mc{padding:24px 32px;flex:1}
-/* â”€â”€ List View â”€â”€ */
+/* List View */
 .tb{display:flex;gap:12px;margin-bottom:16px;align-items:center}
 .sx{flex:1;position:relative}
 .sx input{width:100%;padding:10px 16px 10px 40px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none}
@@ -370,7 +370,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .fb{padding:10px 16px;border:1px solid var(--b);border-radius:10px;background:var(--bg);font-size:.85rem;font-family:inherit;color:var(--t);cursor:pointer;display:flex;align-items:center;gap:6px}
 .sr{display:flex;gap:16px;margin-bottom:20px;font-size:.85rem;font-weight:500}
 .sr .sl{color:var(--d)}.sr .sv{font-weight:700}.sr .sv.gn{color:var(--gt)}
-/* â”€â”€ Table â”€â”€ */
+/* Table */
 .dt{width:100%;border-collapse:collapse;font-size:.85rem;background:var(--bg);border:1px solid var(--b);border-radius:10px;overflow:hidden}
 .dt th{padding:12px 16px;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;color:var(--d);background:var(--bg2);border-bottom:1px solid var(--b)}
 .dt td{padding:12px 16px;border-bottom:1px solid var(--b);vertical-align:middle}
@@ -378,30 +378,30 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .dt tr:hover td{background:var(--bg2)}
 .dt .nl{color:var(--o);font-weight:500;cursor:pointer;text-decoration:none}
 .dt .nl:hover{text-decoration:underline}
-/* â”€â”€ Badges â”€â”€ */
+/* Badges */
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
 .badge.running{background:var(--gb);color:var(--gt)}.badge.stopped{background:var(--rb);color:var(--rt)}
 .badge.plan{background:var(--pb);color:var(--pt)}.badge.pro{background:var(--ol);color:var(--o)}
 .vt{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--d)}
-/* â”€â”€ Buttons â”€â”€ */
+/* Buttons */
 .btn-o{background:var(--o);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:.85rem;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
 .btn-o:hover{background:var(--oh)}
 .btn-g{background:var(--bg);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:8px 16px;font-size:.85rem;font-weight:500;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
 .btn-g:hover{background:var(--bg2);border-color:var(--m)}
 .btn-r{color:var(--r);background:none;border:none;font-size:.8rem;font-weight:500;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
 .btn-r:hover{text-decoration:underline}
-/* â”€â”€ Detail Header â”€â”€ */
+/* Detail Header */
 .bc{font-size:.8rem;color:var(--d);margin-bottom:8px}
 .bc a{color:var(--d);text-decoration:none;cursor:pointer}.bc a:hover{color:var(--o)}
 .dh{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
 .dh h2{font-size:1.5rem;font-weight:700;line-height:1.3}
 .dh-meta{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--d);margin-bottom:20px;display:flex;align-items:center;gap:8px}
 .dh-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
-/* â”€â”€ Tabs â”€â”€ */
+/* Tabs */
 .tabs{display:flex;gap:0;border-bottom:2px solid var(--b);margin-bottom:24px}
 .tab{padding:10px 20px;font-size:.85rem;font-weight:500;color:var(--d);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap}
 .tab:hover{color:var(--t)}.tab.active{color:var(--o);border-bottom-color:var(--o)}
-/* â”€â”€ Stat Cards â”€â”€ */
+/* Stat Cards */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .card{background:var(--bg);border:1px solid var(--b);border-radius:12px;padding:20px}
 .card .card-label{font-size:.8rem;color:var(--d);display:flex;align-items:center;gap:6px;margin-bottom:8px}
@@ -409,31 +409,31 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .card .card-sub{font-size:.75rem;color:var(--d);margin-top:4px}
 .card .bar{height:4px;background:var(--bg3);border-radius:4px;margin-top:10px;overflow:hidden}
 .card .bar-fill{height:100%;background:var(--g);border-radius:4px}
-/* â”€â”€ Section Box â”€â”€ */
+/* Section Box */
 .sbox{background:var(--bg);border:1px solid var(--b);border-radius:12px;padding:20px;margin-bottom:20px}
 .sbox h3{font-size:1rem;font-weight:700;margin-bottom:4px}
 .sbox .sbox-desc{font-size:.85rem;color:var(--d);margin-bottom:16px}
-/* â”€â”€ Detail Grid â”€â”€ */
+/* Detail Grid */
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 40px}
 .detail-item{padding:8px 0;border-bottom:1px solid var(--bg3)}
 .detail-item .di-label{font-size:.75rem;color:var(--d);text-transform:uppercase;letter-spacing:.3px;font-weight:600}
 .detail-item .di-value{font-size:.9rem;font-weight:500;margin-top:2px}
-/* â”€â”€ Config Form â”€â”€ */
+/* Config Form */
 .config-section{background:var(--bg);border:1px solid var(--b);border-radius:12px;padding:24px;margin-bottom:20px}
 .config-section h3{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--d);margin-bottom:16px}
 .config-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .config-row .fg{margin-bottom:0}
 .fg select,.fg input[type=text],.fg input[type=password]{width:100%;padding:10px 14px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);outline:none;background:var(--bg)}
 .fg select:focus,.fg input:focus{border-color:var(--o)}
-/* â”€â”€ Empty State â”€â”€ */
+/* Empty State */
 .empty{text-align:center;padding:60px 40px;background:var(--bg);border:1px solid var(--b);border-radius:12px}
 .empty .empty-icon{font-size:2.5rem;margin-bottom:12px;color:var(--m)}
 .empty h4{font-size:1rem;margin-bottom:8px}
 .empty p{font-size:.85rem;color:var(--d);margin-bottom:20px}
-/* â”€â”€ Role Dropdown â”€â”€ */
+/* Role Dropdown */
 .role-sel{padding:6px 10px;border:1px solid var(--b);border-radius:8px;font-size:.8rem;font-family:inherit;color:var(--t);cursor:pointer;background:var(--bg);min-width:110px;outline:none}
 .role-sel:focus{border-color:var(--o)}
-/* â”€â”€ Modal â”€â”€ */
+/* Modal */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center}
 .modal-bg.show{display:flex}
 .modal{background:var(--bg);border-radius:12px;padding:24px;width:440px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.15)}
@@ -442,13 +442,13 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .modal .fg input:focus,.modal .fg select:focus{border-color:var(--o)}
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .modal .btn-cancel{background:var(--bg2);border:1px solid var(--b);border-radius:8px;padding:8px 16px;font-size:.85rem;cursor:pointer;font-family:inherit}
-/* â”€â”€ Warning â”€â”€ */
+/* Warning */
 .warn{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--ol);border:1px solid #fed7aa;border-radius:10px;font-size:.85rem;color:#9a3412;margin-bottom:16px}
 @media(max-width:900px){.login-screen{flex-direction:column}.login-left{display:none}.login-right{width:100%;min-height:100vh}.sb{display:none}.mn{margin-left:0}}
 </style>
 </head>
 <body>
-<!-- â•â•â•â•â•â•â• LOGIN â•â•â•â•â•â•â• -->
+<!-- LOGIN -->
 <div class="login-screen" id="loginView">
   <div class="login-left">
     <div class="brand"><svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#111827"/><path d="M20 8C13.4 8 8 13.4 8 20s5.4 12 12 12 12-5.4 12-12S26.6 8 20 8zm0 2c2.8 0 5.3 1.2 7.1 3H12.9c1.8-1.8 4.3-3 7.1-3zm-8.5 5h17c.9 1.5 1.5 3.2 1.5 5h-20c0-1.8.6-3.5 1.5-5zm-1.3 7h19.6c-.3 1.8-1.1 3.5-2.2 4.8l-3.4-2.4c-.3-.2-.7-.1-.9.2s-.1.7.2.9l3.1 2.2c-1.6 1.4-3.6 2.2-5.6 2.3v-4c0-.4-.3-.7-.7-.7s-.6.3-.6.7v4c-2.1-.1-4-.9-5.6-2.3l3.1-2.2c.3-.2.4-.6.2-.9s-.6-.4-.9-.2l-3.4 2.4c-1.1-1.3-1.9-3-2.2-4.8z" fill="#fff"/></svg><span>openfang</span></div>
@@ -469,7 +469,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â• DASHBOARD â•â•â•â•â•â•â• -->
+<!-- DASHBOARD -->
 <div class="dashboard" id="dashView">
   <div class="dl">
     <div class="sb">
@@ -488,10 +488,10 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
   </div>
 </div>
 
-<!-- â•â•â•â•â•â•â• Add Member Modal â•â•â•â•â•â•â• -->
+<!-- Add Member Modal -->
 <div class="modal-bg" id="addMemberModal">
   <div class="modal">
-    <h3>ðŸ‘¥ Add Member</h3>
+    <h3>Add Member</h3>
     <div class="fg"><label>Email</label><input type="email" id="amEmail" placeholder="user@example.com"></div>
     <div class="fg"><label>Display Name</label><input type="text" id="amName" placeholder="John Doe"></div>
     <div class="fg"><label>Role</label><select id="amRole"><option value="viewer">Viewer</option><option value="contributor">Contributor</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div>
@@ -505,46 +505,45 @@ let S=null,T=[],D=null,CTab='overview';
 const ROLES=['Owner','Manager','Contributor','Viewer'];
 const INF=4294967295;
 function api(m,p,b){const o={method:m,headers:{'Content-Type':'application/json'}};if(S)o.headers.Authorization='Bearer '+S.token;if(b)o.body=JSON.stringify(b);return fetch(p,o).then(r=>r.json())}
-function fmt(v){return v>=INF?'âˆž':v}
-function fmtDate(d){if(!d)return 'â€”';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function fmt(v){return v>=INF?'Unlimited':v}
+function fmtDate(d){if(!d)return '-';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
 
-// â”€â”€ Auth â”€â”€
+// Auth
 async function doLogin(){const e=document.getElementById('loginEmail').value.trim(),p=document.getElementById('loginPass').value,err=document.getElementById('loginError');err.style.display='none';if(!e||!p){err.textContent='Please fill in all fields';err.style.display='block';return}document.getElementById('loginBtn').disabled=true;try{const d=await api('POST','/api/portal/login',{email:e,password:p});if(d.error){err.textContent=d.error;err.style.display='block';return}S=d;localStorage.setItem('ps',JSON.stringify(d));showDash()}catch(x){err.textContent='Connection error';err.style.display='block'}finally{document.getElementById('loginBtn').disabled=false}}
 function doLogout(){S=null;localStorage.removeItem('ps');document.getElementById('loginView').style.display='flex';document.getElementById('dashView').style.display='none'}
 async function showDash(){document.getElementById('loginView').style.display='none';document.getElementById('dashView').style.display='block';document.getElementById('sbUser').textContent=S.display_name||S.email;if(S.role==='admin')document.getElementById('membersNav').style.display='';await loadT();showPage('tenants')}
 async function loadT(){const d=await api('GET','/api/portal/tenants');T=d.tenants||[]}
 
-// â”€â”€ Navigation â”€â”€
+// Navigation
 function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el.classList.remove('active'));document.getElementById('headerActions').innerHTML='';
 if(p==='tenants'){document.querySelector('.sbn .si:first-child').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg> Tenants';renderList()}
 else if(p==='members'){document.getElementById('membersNav').classList.add('active');document.getElementById('pageTitle').textContent='Members';renderMembers()}}
 
-// â”€â”€ Tenant List â”€â”€
+// Tenant List
 function renderList(){
   const run=T.filter(t=>t.status==='running').length;
-  const rows=T.map(t=>`<tr><td><a class="nl" onclick="openDetail('${t.id}')">${t.name}</a></td><td class="vt">${t.slug}</td><td><span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></td><td><span class="badge pro">${(t.plan||'free').charAt(0).toUpperCase()+(t.plan||'free').slice(1)}</span></td><td class="vt">âš™ ${t.version||'â€”'}</td><td style="color:var(--d)">${fmtDate(t.created_at)}</td><td>${S.role==='admin'?'<button class="btn-r" onclick="event.stopPropagation()">ðŸ—‘ Delete</button>':''}</td></tr>`).join('');
-  document.getElementById('mainContent').innerHTML=`<div class="tb"><div class="sx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="si2" placeholder="Search by name or slug..." oninput="filterT()"></div><button class="fb" onclick="toggleF()"><span id="fl">All statuses</span> â–¾</button></div><div class="sr"><span class="sl">Total: <span class="sv">${T.length}</span></span><span class="sl">Running: <span class="sv gn">${run}</span></span></div><table class="dt" id="tt"><thead><tr><th>Name</th><th>Slug</th><th>Status</th><th>Plan</th><th>Version</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows=T.map(t=>`<tr><td><a class="nl" onclick="openDetail('${t.id}')">${t.name}</a></td><td class="vt">${t.slug}</td><td><span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></td><td><span class="badge pro">${(t.plan||'free').charAt(0).toUpperCase()+(t.plan||'free').slice(1)}</span></td><td class="vt">${t.version||'-'}</td><td style="color:var(--d)">${fmtDate(t.created_at)}</td><td>${S.role==='admin'?'<button class="btn-r" onclick="event.stopPropagation()">Delete</button>':''}</td></tr>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="tb"><div class="sx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="si2" placeholder="Search by name or slug..." oninput="filterT()"></div><button class="fb" onclick="toggleF()"><span id="fl">All statuses</span> &#9662;</button></div><div class="sr"><span class="sl">Total: <span class="sv">${T.length}</span></span><span class="sl">Running: <span class="sv gn">${run}</span></span></div><table class="dt" id="tt"><thead><tr><th>Name</th><th>Slug</th><th>Status</th><th>Plan</th><th>Version</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 let sf='all';
 function toggleF(){sf=sf==='all'?'running':sf==='running'?'stopped':'all';document.getElementById('fl').textContent=sf==='all'?'All statuses':sf==='running'?'Running only':'Stopped only';filterT()}
 function filterT(){const q=(document.getElementById('si2')?.value||'').toLowerCase();document.querySelectorAll('#tt tbody tr').forEach((r,i)=>{const t=T[i];if(!t)return;const ms=!q||t.name.toLowerCase().includes(q)||t.slug.toLowerCase().includes(q);const mf=sf==='all'||(sf==='running'&&t.status==='running')||(sf==='stopped'&&t.status!=='running');r.style.display=ms&&mf?'':'none'})}
 
-// â”€â”€ Tenant Detail â”€â”€
+// Tenant Detail
 async function openDetail(id){
   const d=await api('GET','/api/portal/tenants/'+id);if(d.error)return;D=d;CTab='overview';renderDetailPage();
 }
 function renderDetailPage(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
-  // Header
   document.getElementById('pageTitle').innerHTML=`<span>${t.name}</span>`;
-  const ha=isAdmin?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">â†— Open Dashboard</a><button class="btn-g" onclick="alert('Restart not available from portal')">â†» Restart</button><button class="btn-g" onclick="alert('Stop not available from portal')">â˜ Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="alert('Delete not available from portal')">ðŸ—‘ Delete</button>`:'';
+  const ha=isAdmin?`<a class="btn-o" href="/access/?t=${t.access_token||''}" target="_blank">Open Dashboard</a><button class="btn-g" onclick="alert('Restart not available from portal')">Restart</button><button class="btn-g" onclick="alert('Stop not available from portal')">Stop</button><button class="btn-r" style="padding:8px 16px;border:1px solid var(--b);border-radius:8px" onclick="alert('Delete not available from portal')">Delete</button>`:'';
   document.getElementById('headerActions').innerHTML=ha;
   renderDetailBody();
 }
 function renderDetailBody(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
-  const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> â€º ${t.name}</div>`;
-  const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> Â· <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
+  const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> &gt; ${t.name}</div>`;
+  const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> &middot; <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
   const TABS=['Overview','Config','Channels','Usage','Members'];
   const tabsHtml=`<div class="tabs">${TABS.map(tb=>`<div class="tab${CTab===tb.toLowerCase()?' active':''}" onclick="CTab='${tb.toLowerCase()}';renderDetailBody()">${tb}</div>`).join('')}</div>`;
   let body='';
@@ -556,38 +555,38 @@ function renderDetailBody(){
   document.getElementById('mainContent').innerHTML=bc+header+tabsHtml+body;
 }
 
-// â”€â”€ Tab: Overview â”€â”€
+// Tab: Overview
 function renderOverview(t){
   const chCount=(t.channels||[]).length;
   let html=`<div class="cards">
-    <div class="card"><div class="card-label">âš¡ Status</div><div class="card-val"><span class="badge ${t.status}" style="font-size:.85rem;padding:4px 14px">${t.status==='running'?'Running':'Stopped'}</span></div></div>
-    <div class="card"><div class="card-label">Provider</div><div class="card-val" style="font-size:1rem;text-transform:capitalize">${t.provider||'â€”'}</div><div class="card-sub">${t.model||''}</div></div>
+    <div class="card"><div class="card-label">Status</div><div class="card-val"><span class="badge ${t.status}" style="font-size:.85rem;padding:4px 14px">${t.status==='running'?'Running':'Stopped'}</span></div></div>
+    <div class="card"><div class="card-label">Provider</div><div class="card-val" style="font-size:1rem;text-transform:capitalize">${t.provider||'-'}</div><div class="card-sub">${t.model||''}</div></div>
     <div class="card"><div class="card-label">Channels</div><div class="card-val">${chCount} / ${fmt(t.max_channels)}</div></div>
     <div class="card"><div class="card-label">Messages</div><div class="card-val">${t.messages_today} today</div><div class="card-sub">Limit: ${fmt(t.max_messages_per_day)}/day</div></div>
   </div>`;
   // Magic Access Link
-  html+=`<div class="sbox"><h3>ðŸ”— Magic Access Link</h3><div class="sbox-desc">One-time link for instant dashboard access. Share it directly or send via email.</div>`;
-  if(t.access_token){html+=`<div style="display:flex;align-items:center;gap:8px"><code style="flex:1;padding:10px 14px;background:var(--bg2);border:1px solid var(--b);border-radius:8px;font-size:.8rem;word-break:break-all">${location.origin}/access/?t=${t.access_token}</code><button class="btn-g" onclick="navigator.clipboard.writeText('${location.origin}/access/?t=${t.access_token}')">ðŸ“‹ Copy</button></div>`}
-  else{html+=`<button class="btn-g">ðŸ”— Generate Access Link</button>`}
+  html+=`<div class="sbox"><h3>Magic Access Link</h3><div class="sbox-desc">One-time link for instant dashboard access. Share it directly or send via email.</div>`;
+  if(t.access_token){html+=`<div style="display:flex;align-items:center;gap:8px"><code style="flex:1;padding:10px 14px;background:var(--bg2);border:1px solid var(--b);border-radius:8px;font-size:.8rem;word-break:break-all">${location.origin}/access/?t=${t.access_token}</code><button class="btn-g" onclick="navigator.clipboard.writeText('${location.origin}/access/?t=${t.access_token}')">Copy</button></div>`}
+  else{html+=`<button class="btn-g">Generate Access Link</button>`}
   html+=`</div>`;
   // Tenant Details
   html+=`<div class="sbox"><h3>Tenant Details</h3><div class="detail-grid">
     <div class="detail-item"><div class="di-label">ID</div><div class="di-value vt" style="font-size:.85rem">${t.id}</div></div>
     <div class="detail-item"><div class="di-label">Subdomain</div><div class="di-value"><span class="vt" style="color:var(--o)">${t.slug}.${location.hostname}</span></div></div>
-    <div class="detail-item"><div class="di-label">Plan</div><div class="di-value"><span class="badge pro">${(t.plan||'free').charAt(0).toUpperCase()+(t.plan||'free').slice(1)}</span> Â· ${fmt(t.max_messages_per_day)} msg/day, ${fmt(t.max_channels)} ch, ${fmt(t.max_members)} members</div></div>
+    <div class="detail-item"><div class="di-label">Plan</div><div class="di-value"><span class="badge pro">${(t.plan||'free').charAt(0).toUpperCase()+(t.plan||'free').slice(1)}</span> - ${fmt(t.max_messages_per_day)} msg/day, ${fmt(t.max_channels)} ch, ${fmt(t.max_members)} members</div></div>
     <div class="detail-item"><div class="di-label">Temperature</div><div class="di-value">${t.temperature}</div></div>
-    <div class="detail-item"><div class="di-label">Version</div><div class="di-value vt">${t.version||'â€”'}</div></div>
+    <div class="detail-item"><div class="di-label">Version</div><div class="di-value vt">${t.version||'-'}</div></div>
     <div class="detail-item"><div class="di-label">Created</div><div class="di-value">${fmtDate(t.created_at)}</div></div>
   </div></div>`;
   return html;
 }
 
-// â”€â”€ Tab: Config â”€â”€
+// Tab: Config
 function renderConfig(t){
   return `<div class="config-section"><h3>AI Provider</h3>
-    <div class="config-row"><div class="fg"><label>Provider</label><select disabled><option>${t.provider||'â€”'}</option></select></div><div class="fg"><label>Model</label><input type="text" value="${t.model||''}" disabled></div></div>
+    <div class="config-row"><div class="fg"><label>Provider</label><select disabled><option>${t.provider||'-'}</option></select></div><div class="fg"><label>Model</label><input type="text" value="${t.model||''}" disabled></div></div>
     <div class="fg"><label>Temperature</label><input type="text" value="${t.temperature}" disabled style="width:120px"></div>
-    <div class="warn">âš  Configuration changes are managed by the system administrator.</div>
+    <div class="warn">Configuration changes are managed by the system administrator.</div>
   </div>
   <div class="config-section"><h3>Quotas</h3>
     <div class="config-row"><div class="fg"><label>Messages per Day</label><input type="text" value="${fmt(t.max_messages_per_day)}" disabled></div><div class="fg"><label>Max Channels</label><input type="text" value="${fmt(t.max_channels)}" disabled></div></div>
@@ -595,16 +594,16 @@ function renderConfig(t){
   </div>`;
 }
 
-// â”€â”€ Tab: Channels â”€â”€
+// Tab: Channels
 function renderChannels(t){
   const ch=t.channels||[];
   const cnt=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><div><h3 style="font-size:1rem;font-weight:700">Channels</h3><p style="font-size:.8rem;color:var(--d)">${ch.length} / ${fmt(t.max_channels)} channels connected</p></div></div>`;
-  if(ch.length===0){return cnt+`<div class="empty"><div class="empty-icon">ðŸ“¡</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`}
-  const rows=ch.map(c=>`<tr><td style="text-transform:capitalize;font-weight:500">${c.channel_type||'â€”'}</td><td>${c.name||c.channel_type||'â€”'}</td><td><span class="badge running">Active</span></td></tr>`).join('');
+  if(ch.length===0){return cnt+`<div class="empty"><div class="empty-icon">(( ))</div><h4>No channels connected</h4><p>Connect a messaging platform to start receiving messages.</p></div>`}
+  const rows=ch.map(c=>`<tr><td style="text-transform:capitalize;font-weight:500">${c.channel_type||'-'}</td><td>${c.name||c.channel_type||'-'}</td><td><span class="badge running">Active</span></td></tr>`).join('');
   return cnt+`<table class="dt"><thead><tr><th>Type</th><th>Name</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// â”€â”€ Tab: Usage â”€â”€
+// Tab: Usage
 function renderUsage(t){
   const pct=t.max_messages_per_day>=INF?0:Math.min(100,Math.round(t.messages_today/t.max_messages_per_day*100));
   return `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><h3 style="font-size:1rem;font-weight:700">Usage</h3><span class="badge plan" style="padding:6px 12px;font-size:.8rem">Current Period</span></div>
@@ -619,33 +618,33 @@ function renderUsage(t){
   </div>`;
 }
 
-// â”€â”€ Tab: Members â”€â”€
+// Tab: Members
 function renderMembersTab(t,isAdmin){
-  const addBtn=isAdmin?`<button class="btn-o" onclick="openModal('addMemberModal')">ðŸ‘¥ Add Member</button>`:'';
+  const addBtn=isAdmin?`<button class="btn-o" onclick="openModal('addMemberModal')">+ Add Member</button>`:'';
   const header=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:1rem;font-weight:700">Members</h3>${addBtn}</div>`;
   const rows=(t.members||[]).map(m=>{
     const roleHtml=isAdmin?`<select class="role-sel" onchange="changeRole('${m.email}',this.value)">${ROLES.map(r=>`<option value="${r.toLowerCase()}"${m.role===r.toLowerCase()?' selected':''}>${r}</option>`).join('')}</select>`:`<span class="badge plan">${m.role.charAt(0).toUpperCase()+m.role.slice(1)}</span>`;
-    const actions=isAdmin?`<button class="btn-r" onclick="removeMember('${m.email}')">ðŸ—‘ Remove</button>`:'';
+    const actions=isAdmin?`<button class="btn-r" onclick="removeMember('${m.email}')">Remove</button>`:'';
     return `<tr><td style="font-weight:500">${m.email}</td><td>${roleHtml}</td><td style="color:var(--d)">${fmtDate(m.added_at)}</td><td>${actions}</td></tr>`;
   }).join('');
   return header+`<table class="dt"><thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// â”€â”€ Member Actions â”€â”€
+// Member Actions
 async function changeRole(email,role){const d=await api('PUT',`/api/portal/tenants/${D.id}/members/role`,{email,role});if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 async function removeMember(email){if(!confirm('Remove '+email+'?'))return;const d=await api('DELETE',`/api/portal/tenants/${D.id}/members`,{email});if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 async function doAddMember(){const e=document.getElementById('amEmail').value.trim(),n=document.getElementById('amName').value.trim(),r=document.getElementById('amRole').value,p=document.getElementById('amPass').value;if(!e){alert('Email is required');return}const body={email:e,role:r};if(n)body.display_name=n;if(p)body.password=p;const d=await api('POST',`/api/portal/tenants/${D.id}/members`,body);if(d.ok){closeModal('addMemberModal');document.getElementById('amEmail').value='';document.getElementById('amName').value='';document.getElementById('amPass').value='';D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 
-// â”€â”€ All Members Page â”€â”€
+// All Members Page
 async function renderMembers(){
   const d=await api('GET','/api/portal/members');const ms=d.members||[];
-  const rows=ms.map(m=>`<tr><td style="font-weight:500">${m.display_name||m.email}</td><td style="color:var(--d)">${m.email}</td><td><span class="badge plan">${m.role}</span></td><td>${m.has_password?'âœ…':'âŒ'}</td><td>${(m.tenants||[]).map(t=>t.name).join(', ')||'â€”'}</td><td style="color:var(--d);font-size:.8rem">${m.last_login||'Never'}</td></tr>`).join('');
+  const rows=ms.map(m=>`<tr><td style="font-weight:500">${m.display_name||m.email}</td><td style="color:var(--d)">${m.email}</td><td><span class="badge plan">${m.role}</span></td><td>${m.has_password?'Yes':'No'}</td><td>${(m.tenants||[]).map(t=>t.name).join(', ')||'-'}</td><td style="color:var(--d);font-size:.8rem">${m.last_login||'Never'}</td></tr>`).join('');
   document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total Members: <span class="sv">${ms.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Password</th><th>Tenants</th><th>Last Login</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// â”€â”€ Init â”€â”€
+// Init
 (function(){const s=localStorage.getItem('ps');if(s){try{S=JSON.parse(s);showDash()}catch(e){localStorage.removeItem('ps')}}})();
 </script>
 </body></html>"##;
