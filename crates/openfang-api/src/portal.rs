@@ -120,6 +120,8 @@ pub async fn portal_page() -> impl IntoResponse {
 }
 
 /// POST /api/portal/login — Authenticate member, return session token.
+///
+/// Super Admin: if password matches the system API key, grants full admin access.
 pub async fn portal_login(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PortalLoginRequest>,
@@ -132,6 +134,29 @@ pub async fn portal_login(
         ).into_response();
     }
 
+    // ── Super Admin: password == system API key ──
+    let system_api_key = &state.kernel.config.api_key;
+    if !system_api_key.is_empty() && req.password == *system_api_key {
+        let payload = SessionPayload {
+            email: email.clone(),
+            role: "admin".to_string(),
+            tenant_ids: vec![], // empty = access all
+            exp: chrono::Utc::now().timestamp() + SESSION_EXPIRY_SECS,
+        };
+        let token = create_session_token(&payload);
+
+        info!(email = %email, "Super admin portal login via API key");
+
+        return Json(serde_json::json!({
+            "token": token,
+            "email": email,
+            "role": "admin",
+            "display_name": "System Admin",
+            "expires_in": SESSION_EXPIRY_SECS,
+        })).into_response();
+    }
+
+    // ── Normal member login ──
     let mut data = load_tenants(&state);
     let mut found_role = String::new();
     let mut tenant_ids: Vec<String> = Vec::new();
