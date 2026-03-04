@@ -113,7 +113,7 @@ impl std::fmt::Display for TenantPlan {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct TenantsFile {
-    tenants: Vec<Tenant>,
+    pub(crate) tenants: Vec<Tenant>,
 }
 
 fn tenants_path(state: &AppState) -> std::path::PathBuf {

@@ -9,7 +9,6 @@
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode};
 use axum::middleware::Next;
-use std::sync::Arc;
 use std::time::Instant;
 use tracing::info;
 

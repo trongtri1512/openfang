@@ -6,16 +6,16 @@
 //! Authentication uses a simple token-based session (base64-encoded JSON).
 //! Roles: "admin" sees all tenants, "member" sees only assigned tenants.
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::routes::AppState;
-use crate::tenants::{load_tenants, save_tenants, verify_password, hash_password, TenantMember};
+use crate::tenants::{load_tenants, save_tenants, verify_password, hash_password};
 
 // ---------------------------------------------------------------------------
 // Session token (simple base64-encoded JSON, not full JWT for simplicity)
@@ -142,7 +142,7 @@ pub async fn portal_login(
     for tenant in &data.tenants {
         for member in &tenant.members {
             if member.email.to_lowercase() == email {
-                if let Some(ref hash) = member.password_hash {
+                if let Some(hash) = &member.password_hash {
                     if verify_password(&req.password, hash) {
                         matched = true;
                         // Use highest role found across tenants
