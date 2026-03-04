@@ -723,6 +723,35 @@ pub async fn build_router(
             "/api/access/chat",
             axum::routing::post(crate::tenants::tenant_access_chat),
         )
+        // Tenant self-service portal
+        .route(
+            "/portal/",
+            axum::routing::get(crate::portal::portal_page),
+        )
+        .route(
+            "/api/portal/login",
+            axum::routing::post(crate::portal::portal_login),
+        )
+        .route(
+            "/api/portal/me",
+            axum::routing::get(crate::portal::portal_me),
+        )
+        .route(
+            "/api/portal/tenants",
+            axum::routing::get(crate::portal::portal_tenants),
+        )
+        .route(
+            "/api/portal/tenants/{id}",
+            axum::routing::get(crate::portal::portal_tenant_detail),
+        )
+        .route(
+            "/api/portal/members",
+            axum::routing::get(crate::portal::portal_all_members),
+        )
+        .route(
+            "/api/portal/tenants/{id}/set-password",
+            axum::routing::post(crate::portal::portal_set_password),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

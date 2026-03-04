@@ -76,6 +76,15 @@ pub struct TenantMember {
     pub email: String,
     pub role: String,
     pub added_at: String,
+    /// Hashed password for portal login (base64-encoded SHA256).
+    #[serde(default)]
+    pub password_hash: Option<String>,
+    /// Display name for the member.
+    #[serde(default)]
+    pub display_name: Option<String>,
+    /// ISO timestamp of last portal login.
+    #[serde(default)]
+    pub last_login: Option<String>,
 }
 
 impl std::fmt::Display for TenantStatus {
@@ -111,7 +120,7 @@ fn tenants_path(state: &AppState) -> std::path::PathBuf {
     state.kernel.config.home_dir.join("tenants.json")
 }
 
-fn load_tenants(state: &AppState) -> TenantsFile {
+pub(crate) fn load_tenants(state: &AppState) -> TenantsFile {
     let path = tenants_path(state);
     if path.exists() {
         match std::fs::read_to_string(&path) {
@@ -123,7 +132,7 @@ fn load_tenants(state: &AppState) -> TenantsFile {
     }
 }
 
-fn save_tenants(state: &AppState, data: &TenantsFile) -> Result<(), String> {
+pub(crate) fn save_tenants(state: &AppState, data: &TenantsFile) -> Result<(), String> {
     let path = tenants_path(state);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -154,6 +163,27 @@ fn generate_slug(name: &str) -> String {
 
 fn generate_access_token() -> String {
     Uuid::new_v4().to_string().replace('-', "")
+}
+
+/// Simple password hashing: SHA256(salt + password) → base64.
+pub(crate) fn hash_password(password: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    "openfang_salt_v1".hash(&mut hasher);
+    password.hash(&mut hasher);
+    let h1 = hasher.finish();
+    let mut hasher2 = DefaultHasher::new();
+    h1.hash(&mut hasher2);
+    password.hash(&mut hasher2);
+    let h2 = hasher2.finish();
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.encode(format!("{:016x}{:016x}", h1, h2))
+}
+
+/// Verify a password against a stored hash.
+pub(crate) fn verify_password(password: &str, stored_hash: &str) -> bool {
+    hash_password(password) == stored_hash
 }
 
 fn now_iso() -> String {
@@ -193,6 +223,8 @@ pub struct UpdateTenantRequest {
 pub struct AddMemberRequest {
     pub email: String,
     pub role: Option<String>,
+    pub password: Option<String>,
+    pub display_name: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -505,10 +537,14 @@ pub async fn add_member(
         return (StatusCode::CONFLICT, Json(serde_json::json!({"error": "Member already exists"}))).into_response();
     }
 
+    let password_hash = req.password.as_ref().map(|p| hash_password(p));
     tenant.members.push(TenantMember {
         email: req.email.trim().to_string(),
         role: req.role.unwrap_or_else(|| "member".to_string()),
         added_at: now_iso(),
+        password_hash,
+        display_name: req.display_name,
+        last_login: None,
     });
 
     let members = tenant.members.clone();

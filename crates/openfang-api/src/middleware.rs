@@ -165,6 +165,9 @@ pub async fn auth(
         // Tenant magic access link — auth via ?t= query param
         || path == "/access/"
         || path == "/api/access/chat"
+        // Portal — uses its own session-based auth
+        || path == "/portal/"
+        || path.starts_with("/api/portal/")
     {
         return next.run(request).await;
     }
