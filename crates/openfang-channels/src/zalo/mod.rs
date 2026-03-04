@@ -27,6 +27,7 @@ use self::session::SessionManager;
 const MAX_MESSAGE_LEN: usize = 4096;
 
 /// Zalo channel adapter — native Rust HTTP client.
+#[allow(dead_code)]
 pub struct ZaloAdapter {
     /// Authentication handler
     auth: ZaloAuth,
@@ -83,6 +84,7 @@ impl ZaloAdapter {
     }
 
     /// Login with cookie from config or parameter.
+    #[allow(dead_code)]
     async fn login_cookie(&mut self, cookie: &str) -> Result<(), String> {
         let login_data = self.auth.login_with_cookie(cookie).await?;
 

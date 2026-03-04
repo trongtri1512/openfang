@@ -397,8 +397,7 @@ pub async fn tenant_stats(
     };
 
     // Provide process-level metrics approximation
-    let agents = state.kernel.registry.list_agents();
-    let process_count = agents.len();
+    let process_count = state.kernel.registry.count();
     let uptime_secs = state.started_at.elapsed().as_secs();
 
     Json(serde_json::json!({
