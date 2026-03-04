@@ -862,6 +862,30 @@ pub async fn build_router(
             axum::routing::post(crate::portal::portal_add_channel)
                 .delete(crate::portal::portal_remove_channel),
         )
+        .route(
+            "/api/portal/users",
+            axum::routing::get(crate::portal::portal_list_users)
+                .post(crate::portal::portal_create_user),
+        )
+        .route(
+            "/api/portal/users/{email}",
+            axum::routing::put(crate::portal::portal_update_user)
+                .delete(crate::portal::portal_delete_user),
+        )
+        .route(
+            "/api/portal/plans",
+            axum::routing::get(crate::portal::portal_list_plans)
+                .post(crate::portal::portal_create_plan),
+        )
+        .route(
+            "/api/portal/plans/{id}",
+            axum::routing::put(crate::portal::portal_update_plan)
+                .delete(crate::portal::portal_delete_plan),
+        )
+        .route(
+            "/api/portal/my/tenants",
+            axum::routing::post(crate::portal::portal_create_my_tenant),
+        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

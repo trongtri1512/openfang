@@ -108,12 +108,69 @@ impl std::fmt::Display for TenantPlan {
 }
 
 // ---------------------------------------------------------------------------
+// Global Portal Users & Service Plans
+// ---------------------------------------------------------------------------
+
+/// A global portal user (independent of any tenant).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortalUser {
+    pub email: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub password_hash: Option<String>,
+    /// "admin" or "user"
+    pub role: String,
+    /// Assigned service plan ID.
+    #[serde(default)]
+    pub plan_id: Option<String>,
+    pub created_at: String,
+    #[serde(default)]
+    pub last_login: Option<String>,
+    /// Maximum tenants this user can create.
+    #[serde(default = "default_max_tenants")]
+    pub max_tenants: u32,
+}
+
+fn default_max_tenants() -> u32 { 3 }
+
+/// A configurable service plan with quotas.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServicePlan {
+    pub id: String,
+    pub name: String,
+    pub max_messages_per_day: u32,
+    pub max_channels: u32,
+    pub max_members: u32,
+    pub max_tenants: u32,
+    #[serde(default)]
+    pub price_label: String,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+// ---------------------------------------------------------------------------
 // JSON file storage helpers (fallback when DATABASE_URL is not set)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct TenantsFile {
+    #[serde(default)]
+    pub(crate) users: Vec<PortalUser>,
+    #[serde(default)]
+    pub(crate) plans: Vec<ServicePlan>,
     pub(crate) tenants: Vec<Tenant>,
+}
+
+/// Seed default plans if none exist.
+pub(crate) fn seed_defaults(data: &mut TenantsFile) -> bool {
+    if !data.plans.is_empty() { return false; }
+    data.plans = vec![
+        ServicePlan { id: "free".into(), name: "Free".into(), max_messages_per_day: 100, max_channels: 3, max_members: 5, max_tenants: 2, price_label: "Free".into(), is_default: true },
+        ServicePlan { id: "pro".into(), name: "Pro".into(), max_messages_per_day: 1000, max_channels: 10, max_members: 20, max_tenants: 10, price_label: "$29/mo".into(), is_default: false },
+        ServicePlan { id: "enterprise".into(), name: "Enterprise".into(), max_messages_per_day: u32::MAX, max_channels: u32::MAX, max_members: u32::MAX, max_tenants: u32::MAX, price_label: "Contact us".into(), is_default: false },
+    ];
+    true
 }
 
 fn tenants_path(state: &AppState) -> std::path::PathBuf {
@@ -202,7 +259,7 @@ pub(crate) fn save_tenants(state: &AppState, data: &TenantsFile) -> Result<(), S
     Ok(())
 }
 
-fn generate_slug(name: &str) -> String {
+pub(crate) fn generate_slug(name: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();
@@ -222,7 +279,7 @@ fn generate_slug(name: &str) -> String {
     format!("{}-{:x}", if clean.is_empty() { "tenant" } else { &clean }, hash & 0xFFFFFF)
 }
 
-fn generate_access_token() -> String {
+pub(crate) fn generate_access_token() -> String {
     Uuid::new_v4().to_string().replace('-', "")
 }
 
