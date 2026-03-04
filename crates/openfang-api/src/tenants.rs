@@ -112,7 +112,7 @@ impl std::fmt::Display for TenantPlan {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-struct TenantsFile {
+pub(crate) struct TenantsFile {
     pub(crate) tenants: Vec<Tenant>,
 }
 
