@@ -266,7 +266,7 @@ pub async fn portal_add_member(State(state): State<Arc<AppState>>, Path(id): Pat
         email: email.clone(),
         role: req.role.to_lowercase(),
         display_name: req.display_name.clone(),
-        added_at: Some(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)),
+        added_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
         last_login: None,
         password_hash: pw_hash,
     });
