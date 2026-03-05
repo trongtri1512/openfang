@@ -314,7 +314,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
         </select>
       </div>
     </div>
-    <div class="fg"><label>Agent (name or ID)</label><input type="text" id="sjAgentId" placeholder="e.g. writer or UUID" list="sjAgentList"><datalist id="sjAgentList"></datalist></div>
+    <div class="fg"><label>Target Agent</label><select id="sjAgentId"><option value="">Loading agents...</option></select></div>
     <div class="fg"><label>Message (prompt sent to agent)</label><textarea id="sjMessage" rows="3" style="width:100%;font-family:monospace;font-size:.85rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder="Generate a daily report of all activities..."></textarea></div>
     <div class="actions"><button class="btn-cancel" onclick="closeModal('createSchedulerModal')">Cancel</button><button class="btn-o" onclick="doCreateSchedulerJob()">Create Job</button></div>
   </div>
@@ -772,7 +772,7 @@ async function removeChannel(name){if(!confirm('Remove channel "'+name+'"?'))ret
 // Member Actions
 async function changeRole(email,role){const d=await api('PUT',`/api/portal/tenants/${D.id}/members/role`,{email,role});if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 async function removeMember(email){if(!confirm('Remove '+email+'?'))return;const d=await api('DELETE',`/api/portal/tenants/${D.id}/members`,{email});if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
-function openModal(id){document.getElementById(id).classList.add('show');if(id==='createWorkflowModal'&&document.getElementById('wfStepsContainer').children.length===0){addWfStep()}if(id==='createSchedulerModal'){loadAgentsList().then(agents=>{const dl=document.getElementById('sjAgentList');dl.innerHTML='';agents.forEach(a=>{const o=document.createElement('option');o.value=a.name||a.id;dl.appendChild(o)})})}}
+function openModal(id){document.getElementById(id).classList.add('show');if(id==='createWorkflowModal'&&document.getElementById('wfStepsContainer').children.length===0){addWfStep()}if(id==='createSchedulerModal'){const sel=document.getElementById('sjAgentId');sel.innerHTML='<option value="">Loading agents...</option>';loadAgentsList().then(agents=>{sel.innerHTML='<option value="">-- Select Agent --</option>';agents.forEach(a=>{const o=document.createElement('option');o.value=a.name||a.id;o.textContent=(a.name||a.id)+(a.state?' ('+a.state+')':'');sel.appendChild(o)})})}}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 async function doAddMember(){const e=document.getElementById('amEmail').value.trim(),n=document.getElementById('amName').value.trim(),r=document.getElementById('amRole').value,p=document.getElementById('amPass').value;if(!e){alert('Email is required');return}const body={email:e,role:r};if(n)body.display_name=n;if(p)body.password=p;const d=await api('POST',`/api/portal/tenants/${D.id}/members`,body);if(d.ok){closeModal('addMemberModal');document.getElementById('amEmail').value='';document.getElementById('amName').value='';document.getElementById('amPass').value='';D=await api('GET','/api/portal/tenants/'+D.id);renderDetailBody()}else{alert(d.error||'Failed')}}
 
