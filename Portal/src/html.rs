@@ -400,11 +400,17 @@ async function renderDetailBody(){
 // Tab: Overview
 function renderOverview(t){
   const chCount=(t.channels||[]).length;
+  const memCount=(t.members||[]).length;
+  const agentName=t.agent_name||t.name+' Agent';
+  const msgUsed=t.messages_today||0;
+  const msgMax=t.max_messages_per_day;
+  const msgPct=msgMax>0&&msgMax<1e9?Math.min(100,Math.round(msgUsed/msgMax*100)):0;
+  const msgColor=msgPct>=90?'var(--rt)':msgPct>=70?'#e67e22':'var(--gt)';
   let html=`<div class="cards">
     <div class="card"><div class="card-label">Status</div><div class="card-val"><span class="badge ${t.status}" style="font-size:.85rem;padding:4px 14px">${t.status==='running'?'Running':'Stopped'}</span></div></div>
-    <div class="card"><div class="card-label">Provider</div><div class="card-val" style="font-size:1rem;text-transform:capitalize">${t.provider||'-'}</div><div class="card-sub">${t.model||''}</div></div>
-    <div class="card"><div class="card-label">Channels</div><div class="card-val">${chCount} / ${fmt(t.max_channels)}</div></div>
-    <div class="card"><div class="card-label">Messages</div><div class="card-val">${t.messages_today} today</div><div class="card-sub">Limit: ${fmt(t.max_messages_per_day)}/day</div></div>
+    <div class="card"><div class="card-label">Agent</div><div class="card-val" style="font-size:.95rem;font-weight:600">${agentName}</div><div class="card-sub"><span class="badge ${t.status==='running'?'running':'stopped'}" style="font-size:.7rem">${t.status==='running'?'Online':'Offline'}</span> · ${t.provider||'groq'} / ${t.model||'-'}</div></div>
+    <div class="card"><div class="card-label">Messages Today</div><div class="card-val" style="font-size:1.4rem;font-weight:700;color:${msgColor}">${msgUsed}<span style="font-size:.8rem;font-weight:400;color:var(--d)"> / ${fmt(msgMax)}</span></div><div style="margin-top:8px;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden"><div style="width:${msgPct}%;height:100%;background:${msgColor};border-radius:4px;transition:width .3s"></div></div></div>
+    <div class="card"><div class="card-label">Channels</div><div class="card-val">${chCount} / ${fmt(t.max_channels)}</div><div class="card-sub">${memCount} member${memCount!==1?'s':''}</div></div>
   </div>`;
   // Magic Access Link
   html+=`<div class="sbox"><h3>Magic Access Link</h3><div class="sbox-desc">One-time link for instant dashboard access. Share it directly or send via email.</div>`;
