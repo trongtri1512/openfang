@@ -12,24 +12,37 @@ pub const PORTAL_HTML: &str = r##"<!DOCTYPE html>
 :root{--o:#FF5C00;--oh:#e65200;--obg:rgba(255,92,0,.08);--ol:#fff7ed;--bg:#fff;--bg2:#f9fafb;--bg3:#f3f4f6;--t:#111827;--d:#6b7280;--m:#9ca3af;--b:#e5e7eb;--g:#22c55e;--gb:#f0fdf4;--gt:#15803d;--r:#ef4444;--rb:#fef2f2;--rt:#dc2626;--pb:#faf5ff;--pt:#7c3aed;--bb:#eff6ff;--bt:#2563eb}
 body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;background:var(--bg2)}
 /* Login Screen */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseGlow{0%,100%{opacity:.4}50%{opacity:.7}}
+@keyframes floatDot{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 .login-screen{display:flex;min-height:100vh;background:var(--bg)}
-.login-left{flex:1;background:var(--bg2);position:relative;display:flex;flex-direction:column;justify-content:center;padding:48px 64px;overflow:hidden}
-.login-left::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.03) 1px,transparent 1px);background-size:40px 40px}
+.login-left{flex:1;background:#0f172a;position:relative;display:flex;flex-direction:column;justify-content:center;padding:48px 64px;overflow:hidden;color:#e2e8f0}
+.login-left::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.06) 1px,transparent 0);background-size:32px 32px}
+.login-left::after{content:'';position:absolute;top:-120px;right:-120px;width:400px;height:400px;background:radial-gradient(circle,rgba(255,92,0,.15),transparent 70%);animation:pulseGlow 4s ease-in-out infinite;pointer-events:none}
 .login-left>*{position:relative;z-index:1}
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:40px}
-.brand svg{width:36px;height:36px}.brand span{font-size:1.4rem;font-weight:700;letter-spacing:-.5px}
-.login-left h2{font-size:2.2rem;font-weight:700;line-height:1.2;letter-spacing:-1px;margin-bottom:16px}
+.brand svg{width:36px;height:36px}.brand span{font-size:1.4rem;font-weight:700;letter-spacing:-.5px;color:#fff}
+.login-left h2{font-size:2.2rem;font-weight:700;line-height:1.2;letter-spacing:-1px;margin-bottom:16px;color:#fff}
 .hl{color:var(--o)}
-.login-left .desc{color:var(--d);font-size:.95rem;line-height:1.6;margin-bottom:40px}
-.tc{background:var(--bg);border:1px solid var(--b);border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:40px}
-.td{display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid var(--b)}
+.login-left .desc{color:#94a3b8;font-size:.95rem;line-height:1.6;margin-bottom:40px}
+.tc{background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);margin-bottom:40px}
+.td{display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.08);align-items:center}
 .td span{width:10px;height:10px;border-radius:50%}
 .td span:nth-child(1){background:#ff5f57}.td span:nth-child(2){background:#febc2e}.td span:nth-child(3){background:#28c840}
-.tcd{padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:1.8;color:var(--d)}
-.tcd .p{color:var(--t);font-weight:500}.tcd .c{color:var(--o)}
-.mets{display:flex;gap:32px}
-.met .v{font-size:1.5rem;font-weight:700}.met .v .u{color:var(--o);font-weight:600}
-.met .l{font-size:.75rem;color:var(--m);margin-top:2px}
+.td-title{margin-left:12px;font-size:.7rem;color:#64748b;font-family:'JetBrains Mono',monospace}
+.tcd{padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:2;color:#64748b;min-height:180px}
+.tcd .line{opacity:0;white-space:nowrap;overflow:hidden}
+.tcd .line.visible{opacity:1;animation:fadeInUp .3s ease}
+.tcd .prompt{color:#a78bfa}.tcd .cmd{color:#22d3ee}.tcd .ok{color:#4ade80}.tcd .warn{color:#fbbf24}.tcd .info{color:#94a3b8}
+.tcd .cursor{display:inline-block;width:7px;height:14px;background:var(--o);animation:blink 1s step-end infinite;vertical-align:middle;margin-left:2px;border-radius:1px}
+.mets{display:flex;gap:24px}
+.met{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:16px 20px;flex:1;transition:all .3s ease;cursor:default}
+.met:hover{background:rgba(255,92,0,.1);border-color:rgba(255,92,0,.3);transform:translateY(-2px)}
+.met .v{font-size:1.4rem;font-weight:700;color:#fff}.met .v .u{color:var(--o);font-weight:600}
+.met .l{font-size:.7rem;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.login-tags{display:flex;gap:8px;margin-top:32px}
+.login-tag{padding:4px 12px;border-radius:20px;font-size:.7rem;font-weight:500;border:1px solid rgba(255,255,255,.1);color:#94a3b8;background:rgba(255,255,255,.03)}
 .login-right{width:480px;display:flex;flex-direction:column;justify-content:center;padding:48px;position:relative}
 .login-right::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top right,rgba(255,92,0,.04),transparent 60%)}
 .login-right>*{position:relative;z-index:1}
@@ -44,8 +57,8 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .iw input:focus{border-color:var(--o);box-shadow:0 0 0 3px rgba(255,92,0,.1)}
 .iw input::placeholder{color:var(--m)}
 .iw .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--m)}
-.bl{width:100%;padding:14px;background:var(--o);color:#fff;border:none;border-radius:12px;font-size:.95rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background .2s;margin-top:8px}
-.bl:hover{background:var(--oh)}.bl:disabled{opacity:.5;cursor:not-allowed}
+.bl{width:100%;padding:14px;background:var(--o);color:#fff;border:none;border-radius:12px;font-size:.95rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background .2s,transform .15s;margin-top:8px}
+.bl:hover{background:var(--oh);transform:translateY(-1px)}.bl:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .em{color:var(--r);font-size:.8rem;margin-top:12px;display:none}
 .lf{margin-top:24px;text-align:center;font-size:.8rem;color:var(--m)}.lf a{color:var(--o);text-decoration:none;font-weight:500}
 /* Dashboard Layout */
@@ -150,6 +163,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 /* Warning */
 .warn{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--ol);border:1px solid #fed7aa;border-radius:10px;font-size:.85rem;color:#9a3412;margin-bottom:16px}
 @media(max-width:900px){.login-screen{flex-direction:column}.login-left{display:none}.login-right{width:100%;min-height:100vh}.sb{display:none}.mn{margin-left:0}}
+@media(min-width:901px) and (max-width:1200px){.login-left{padding:32px 40px}.login-left h2{font-size:1.8rem}.mets{gap:12px}.met{padding:12px 14px}}
 @media(max-width:768px){.tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:0;padding-bottom:4px}.tab{white-space:nowrap;flex-shrink:0;padding:8px 12px;font-size:.8rem}.config-section{padding:12px}.config-row{flex-direction:column;gap:8px}.dh h2{font-size:1.1rem}.dh-meta{font-size:.75rem}.mn{padding:12px}#headerActions{flex-wrap:wrap;gap:6px}#headerActions a,#headerActions button{font-size:.75rem;padding:6px 10px}.dt{font-size:.8rem}.dt th,.dt td{padding:6px 8px}}
 </style>
 </head>
@@ -157,11 +171,12 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 <!-- LOGIN -->
 <div class="login-screen" id="loginView">
   <div class="login-left">
-    <div class="brand"><svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#111827"/><path d="M20 8C13.4 8 8 13.4 8 20s5.4 12 12 12 12-5.4 12-12S26.6 8 20 8zm0 2c2.8 0 5.3 1.2 7.1 3H12.9c1.8-1.8 4.3-3 7.1-3zm-8.5 5h17c.9 1.5 1.5 3.2 1.5 5h-20c0-1.8.6-3.5 1.5-5zm-1.3 7h19.6c-.3 1.8-1.1 3.5-2.2 4.8l-3.4-2.4c-.3-.2-.7-.1-.9.2s-.1.7.2.9l3.1 2.2c-1.6 1.4-3.6 2.2-5.6 2.3v-4c0-.4-.3-.7-.7-.7s-.6.3-.6.7v4c-2.1-.1-4-.9-5.6-2.3l3.1-2.2c.3-.2.4-.6.2-.9s-.6-.4-.9-.2l-3.4 2.4c-1.1-1.3-1.9-3-2.2-4.8z" fill="#fff"/></svg><span>openfang</span></div>
+    <div class="brand"><svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="var(--o)"/><path d="M20 8C13.4 8 8 13.4 8 20s5.4 12 12 12 12-5.4 12-12S26.6 8 20 8zm0 2c2.8 0 5.3 1.2 7.1 3H12.9c1.8-1.8 4.3-3 7.1-3zm-8.5 5h17c.9 1.5 1.5 3.2 1.5 5h-20c0-1.8.6-3.5 1.5-5zm-1.3 7h19.6c-.3 1.8-1.1 3.5-2.2 4.8l-3.4-2.4c-.3-.2-.7-.1-.9.2s-.1.7.2.9l3.1 2.2c-1.6 1.4-3.6 2.2-5.6 2.3v-4c0-.4-.3-.7-.7-.7s-.6.3-.6.7v4c-2.1-.1-4-.9-5.6-2.3l3.1-2.2c.3-.2.4-.6.2-.9s-.6-.4-.9-.2l-3.4 2.4c-1.1-1.3-1.9-3-2.2-4.8z" fill="#fff"/></svg><span>openfang</span></div>
     <h2>Deploy &amp; manage<br>AI agents with <span class="hl">the official<br>OpenFang runtime</span></h2>
     <p class="desc">Self-service portal for team members. Manage your tenants, view analytics, and collaborate securely.</p>
-    <div class="tc"><div class="td"><span></span><span></span><span></span></div><div class="tcd"><div><span class="p">$</span> <span class="c">openfang serve</span></div><div>booted in &lt;200ms</div><div>hands 7 active</div><div>gateway ready :3000</div></div></div>
+    <div class="tc"><div class="td"><span></span><span></span><span></span><span class="td-title">terminal — openfang</span></div><div class="tcd" id="terminalBody"></div></div>
     <div class="mets"><div class="met"><div class="v">32 <span class="u">MB</span></div><div class="l">Binary</div></div><div class="met"><div class="v">180<span class="u">ms</span></div><div class="l">Cold Start</div></div><div class="met"><div class="v">26<span class="u">+</span></div><div class="l">Providers</div></div></div>
+    <div class="login-tags"><span class="login-tag">🦀 Built with Rust</span><span class="login-tag">⚡ Open Source</span><span class="login-tag">🔒 Self-hosted</span></div>
   </div>
   <div class="login-right">
     <div class="bsm"><svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#111827"/><path d="M20 8C13.4 8 8 13.4 8 20s5.4 12 12 12 12-5.4 12-12S26.6 8 20 8zm0 2c2.8 0 5.3 1.2 7.1 3H12.9c1.8-1.8 4.3-3 7.1-3zm-8.5 5h17c.9 1.5 1.5 3.2 1.5 5h-20c0-1.8.6-3.5 1.5-5zm-1.3 7h19.6c-.3 1.8-1.1 3.5-2.2 4.8l-3.4-2.4c-.3-.2-.7-.1-.9.2s-.1.7.2.9l3.1 2.2c-1.6 1.4-3.6 2.2-5.6 2.3v-4c0-.4-.3-.7-.7-.7s-.6.3-.6.7v4c-2.1-.1-4-.9-5.6-2.3l3.1-2.2c.3-.2.4-.6.2-.9s-.6-.4-.9-.2l-3.4 2.4c-1.1-1.3-1.9-3-2.2-4.8z" fill="#fff"/></svg><span>openfang</span></div>
@@ -744,10 +759,53 @@ async function doCreateMyTenant(){const name=document.getElementById('ctName').v
 
 // Init + Permalink
 window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});
+// Terminal typing animation
+const TERM_LINES=[
+  {type:'cmd',text:'$ openfang serve'},
+  {type:'info',text:'  compiling openfang v0.9.2...'},
+  {type:'ok',text:'  ✓ config loaded from openfang.toml'},
+  {type:'ok',text:'  ✓ database connected (pool: 8)'},
+  {type:'ok',text:'  ✓ hands 7 active — browser, researcher, collector...'},
+  {type:'ok',text:'  ✓ skills 12 loaded'},
+  {type:'warn',text:'  ⚡ booted in 182ms'},
+  {type:'ok',text:'  ✓ gateway ready on :3000'},
+  {type:'info',text:'  waiting for connections...'}
+];
+let termRunning=false;
+function typeTerminal(){
+  if(termRunning)return;termRunning=true;
+  const el=document.getElementById('terminalBody');
+  if(!el){termRunning=false;return}
+  el.innerHTML='';
+  let lineIdx=0;
+  function typeLine(){
+    if(lineIdx>=TERM_LINES.length){termRunning=false;setTimeout(()=>{if(document.getElementById('loginView').style.display!=='none')typeTerminal()},3000);return}
+    const ln=TERM_LINES[lineIdx];
+    const div=document.createElement('div');
+    div.className='line visible';
+    el.appendChild(div);
+    let charIdx=0;
+    const speed=ln.type==='cmd'?60:20;
+    function typeChar(){
+      if(charIdx<=ln.text.length){
+        const txt=ln.text.substring(0,charIdx);
+        if(ln.type==='cmd'){const parts=txt.split(' ');div.innerHTML='<span class="prompt">'+parts[0]+'</span> <span class="cmd">'+(parts.slice(1).join(' '))+'</span><span class="cursor"></span>'}
+        else if(ln.type==='ok')div.innerHTML='<span class="ok">'+txt+'</span>';
+        else if(ln.type==='warn')div.innerHTML='<span class="warn">'+txt+'</span>';
+        else div.innerHTML='<span class="info">'+txt+'</span>';
+        charIdx++;setTimeout(typeChar,speed+(Math.random()*20-10))
+      }else{
+        div.innerHTML=div.innerHTML.replace('<span class="cursor"></span>','');
+        lineIdx++;setTimeout(typeLine,ln.type==='cmd'?500:150)
+      }
+    }
+    typeChar();
+  }
+  typeLine();
+}
 (function(){const s=localStorage.getItem('ps');if(s){try{S=JSON.parse(s);
-  // Check if URL has tenant ID (permalink)
   const m=location.pathname.match(/\/([a-f0-9-]{36})/i);
   if(m){showDash().then(()=>openDetail(m[1]))}else{showDash()}
-}catch(e){localStorage.removeItem('ps')}}})();
+}catch(e){localStorage.removeItem('ps')}}if(document.getElementById('loginView').style.display!=='none')typeTerminal()})();
 </script>
 </body></html>"##;
