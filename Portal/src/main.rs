@@ -96,6 +96,8 @@ async fn main() {
         .route("/api/portal/system/hands/{hand_id}", axum::routing::get(handlers::portal_system_hand_detail))
         .route("/api/portal/system/providers/{name}/key", axum::routing::post(handlers::portal_system_provider_key))
         .route("/api/portal/system/providers/{name}/test", axum::routing::post(handlers::portal_system_provider_test))
+        // Diagnostic: test OpenFang API connectivity
+        .route("/api/portal/system/test", axum::routing::get(handlers::portal_system_test))
         .with_state(state);
 
     // Add CORS

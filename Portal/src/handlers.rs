@@ -574,17 +574,21 @@ pub async fn portal_conversations(State(state): State<Arc<PortalState>>, Path(id
 // ─── System API Proxies (calls OpenFang via HTTP) ────────────────────────────
 async fn proxy_get(state: &PortalState, path: &str) -> impl IntoResponse {
     let url = format!("{}{}", state.openfang_api_url, path);
+    info!(url = %url, "Proxy GET request");
     let client = reqwest::Client::new();
     let mut req = client.get(&url);
     if !state.openfang_api_key.is_empty() {
         req = req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
     }
     match req.send().await {
-        Ok(resp) => match resp.json::<serde_json::Value>().await {
-            Ok(json) => Json(json).into_response(),
-            Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Parse error: {e}")}))).into_response(),
+        Ok(resp) => {
+            let status = resp.status();
+            match resp.json::<serde_json::Value>().await {
+                Ok(json) => { info!(url = %url, status = %status, "Proxy GET success"); Json(json).into_response() },
+                Err(e) => { tracing::warn!(url = %url, error = %e, "Proxy parse error"); (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Parse error: {e}")}))).into_response() },
+            }
         },
-        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Proxy error: {e}")}))).into_response(),
+        Err(e) => { tracing::warn!(url = %url, error = %e, "Proxy connection error"); (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Proxy error: {e}")}))).into_response() },
     }
 }
 
@@ -700,4 +704,38 @@ pub async fn portal_system_provider_key(State(state): State<Arc<PortalState>>, P
 pub async fn portal_system_provider_test(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_post(&state, &format!("/api/providers/{}/test", name), serde_json::json!({})).await.into_response()
+}
+
+/// Diagnostic: test OpenFang API connectivity
+pub async fn portal_system_test(State(state): State<Arc<PortalState>>) -> impl IntoResponse {
+    let url = format!("{}/api/providers", state.openfang_api_url);
+    let has_key = !state.openfang_api_key.is_empty();
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap_or_default();
+    let mut req = client.get(&url);
+    if has_key {
+        req = req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+    }
+    match req.send().await {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let body = resp.text().await.unwrap_or_else(|e| format!("read error: {e}"));
+            Json(serde_json::json!({
+                "openfang_api_url": state.openfang_api_url,
+                "has_api_key": has_key,
+                "test_url": url,
+                "status": status,
+                "connected": true,
+                "response_preview": if body.len() > 500 { format!("{}...", &body[..500]) } else { body }
+            })).into_response()
+        },
+        Err(e) => {
+            Json(serde_json::json!({
+                "openfang_api_url": state.openfang_api_url,
+                "has_api_key": has_key,
+                "test_url": url,
+                "connected": false,
+                "error": format!("{e}")
+            })).into_response()
+        }
+    }
 }
