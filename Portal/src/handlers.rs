@@ -539,7 +539,7 @@ pub async fn portal_create_my_tenant(State(state): State<Arc<PortalState>>, head
         max_messages_per_day: max_msg, max_channels: max_ch, max_members: max_mem, messages_today: 0, channels_active: 0,
         members: vec![TenantMember { email: session.email.clone(), role: "owner".into(), display_name: user.and_then(|u| u.display_name.clone()), added_at: now_iso(), last_login: None, password_hash: None }],
         access_token: generate_access_token(), created_at: now_iso(), version: format!("bizclaw-portal-{}", env!("CARGO_PKG_VERSION")),
-        api_key: None, channels: vec![], system_prompt: String::new(), skills: vec![], hands: vec![], language: String::new(), webhook_url: None, openfang_agent_id: None,
+        api_key: None, channels: vec![], system_prompt: String::new(), skills: vec![], hands: vec![], language: String::new(), webhook_url: None,
     };
     let tid = tenant.id.clone();
     data.tenants.push(tenant);
