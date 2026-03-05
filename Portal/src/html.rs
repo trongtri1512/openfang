@@ -294,21 +294,29 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 
 <!-- Create Scheduler Job Modal -->
 <div class="modal-bg" id="createSchedulerModal">
-  <div class="modal" style="max-width:560px">
-    <h3>Create Trigger</h3>
-    <div class="fg"><label>Agent ID</label><input type="text" id="sjAgentId" placeholder="Agent UUID"></div>
-    <div class="fg"><label>Event Pattern</label><select id="sjPattern">
-      <option value="all">All Events</option>
-      <option value="lifecycle">Lifecycle Events</option>
-      <option value="agent_terminated">Agent Terminated</option>
-      <option value="system">System Events</option>
-      <option value="memory_update">Memory Updates</option>
-      <option value="content_match">Content Match (substring)</option>
-    </select></div>
-    <div class="fg" id="sjSubstringRow" style="display:none"><label>Match Substring</label><input type="text" id="sjSubstring" placeholder="e.g. error"></div>
-    <div class="fg"><label>Prompt Template</label><textarea id="sjPrompt" rows="3" style="width:100%;font-family:monospace;font-size:.85rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder="Event detected: {{event}}">Event: {{event}}</textarea></div>
-    <div class="fg"><label>Max Fires (0 = unlimited)</label><input type="number" id="sjMaxFires" value="0" min="0"></div>
-    <div class="actions"><button class="btn-cancel" onclick="closeModal('createSchedulerModal')">Cancel</button><button class="btn-o" onclick="doCreateSchedulerJob()">Create Trigger</button></div>
+  <div class="modal" style="max-width:600px">
+    <h3>Create Scheduled Job</h3>
+    <div class="fg"><label>Job Name</label><input type="text" id="sjName" placeholder="e.g. daily-report"></div>
+    <div class="fg"><label>Cron Expression (5-field: min hour dom mon dow)</label>
+      <div class="config-row" style="gap:8px;align-items:center">
+        <input type="text" id="sjCron" placeholder="*/5 * * * *" style="flex:1">
+        <select id="sjCronPreset" onchange="if(this.value)document.getElementById('sjCron').value=this.value" style="flex:0 0 auto;width:auto">
+          <option value="">Preset...</option>
+          <option value="* * * * *">Every minute</option>
+          <option value="*/5 * * * *">Every 5 min</option>
+          <option value="*/15 * * * *">Every 15 min</option>
+          <option value="0 * * * *">Every hour</option>
+          <option value="0 */6 * * *">Every 6 hours</option>
+          <option value="0 9 * * *">Daily at 9 AM</option>
+          <option value="0 9 * * 1-5">Weekdays 9 AM</option>
+          <option value="0 0 * * 0">Weekly (Sunday)</option>
+          <option value="0 0 1 * *">Monthly</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>Agent (name or ID)</label><input type="text" id="sjAgentId" placeholder="e.g. writer or UUID" list="sjAgentList"><datalist id="sjAgentList"></datalist></div>
+    <div class="fg"><label>Message (prompt sent to agent)</label><textarea id="sjMessage" rows="3" style="width:100%;font-family:monospace;font-size:.85rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder="Generate a daily report of all activities..."></textarea></div>
+    <div class="actions"><button class="btn-cancel" onclick="closeModal('createSchedulerModal')">Cancel</button><button class="btn-o" onclick="doCreateSchedulerJob()">Create Job</button></div>
   </div>
 </div>
 
@@ -343,7 +351,7 @@ else if(p==='members'){document.getElementById('membersNav').classList.add('acti
 else if(p==='users'){document.getElementById('usersNav').classList.add('active');document.getElementById('pageTitle').textContent='Users';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateUserModal()">+ Create User</button>';renderUsers()}
 else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}
 else if(p==='workflows'){document.getElementById('workflowsNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Workflows';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createWorkflowModal\")">+ Create Workflow</button>';renderWorkflows()}
-else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Trigger</button>';renderScheduler()}}
+else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Job</button>';renderScheduler()}}
 
 // Tenant List
 function renderList(){
@@ -854,22 +862,21 @@ async function viewWorkflowRuns(id){const d=await api('GET','/api/portal/workflo
 
 async function deleteWorkflow(id,name){if(!confirm('Delete workflow "'+name+'"?'))return;const d=await api('DELETE','/api/portal/workflows/'+encodeURIComponent(id));renderWorkflows()}
 
-// ─── Automation: Scheduler / Triggers ─────────────────────────────────────────
-document.getElementById('sjPattern')?.addEventListener('change',function(){document.getElementById('sjSubstringRow').style.display=this.value==='content_match'?'':'none'});
+// ─── Automation: Scheduler / Cron Jobs ────────────────────────────────────────
 
 async function renderScheduler(){
   const d=await api('GET','/api/portal/scheduler');
-  const jobs=Array.isArray(d)?d:(d.triggers||d.error?[]:[]);
-  if(d.error){document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3>Scheduler</h3><div class="sbox-desc">Could not load triggers from OpenFang API.</div><div style="margin-top:8px;padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">${d.error}</div></div>`;return}
-  if(jobs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><h3 style="color:var(--d);font-weight:500">No triggers yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Create triggers to automatically react to agent events.</p><button class="btn-o" style="margin-top:16px" onclick="openModal('createSchedulerModal')">+ Create Trigger</button></div>`;return}
-  const rows=jobs.map(j=>{const pat=typeof j.pattern==='string'?j.pattern:JSON.stringify(j.pattern);const maxF=j.max_fires===0?'∞':j.max_fires;return `<tr><td style="font-family:monospace;font-size:.75rem">${(j.id||'').substring(0,8)}...</td><td style="font-family:monospace;font-size:.75rem">${(j.agent_id||'').substring(0,8)}...</td><td><span class="badge plan">${pat}</span></td><td style="font-size:.8rem">${j.fire_count||0} / ${maxF}</td><td><span class="badge ${j.enabled?'running':'stopped'}">${j.enabled?'Enabled':'Disabled'}</span></td><td style="font-size:.8rem">${fmtDate(j.created_at)}</td><td><button class="btn-g" onclick="toggleTrigger('${j.id}',${!j.enabled})">${j.enabled?'Disable':'Enable'}</button> <button class="btn-r" onclick="deleteTrigger('${j.id}')">Delete</button></td></tr>`}).join('');
-  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${jobs.length}</span></span></div><table class="dt"><thead><tr><th>ID</th><th>Agent</th><th>Pattern</th><th>Fires</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const jobs=Array.isArray(d)?d:(d.schedules||d.error?[]:[]);
+  if(d.error){document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3>Scheduler</h3><div class="sbox-desc">Could not load schedules from OpenFang API.</div><div style="margin-top:8px;padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">${d.error}</div></div>`;return}
+  if(jobs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><h3 style="color:var(--d);font-weight:500">No scheduled jobs yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Create cron jobs to run agents on a schedule.</p><button class="btn-o" style="margin-top:16px" onclick="openModal('createSchedulerModal')">+ Create Job</button></div>`;return}
+  const rows=jobs.map(j=>{const cron=j.cron||'';const agId=(j.agent_id||'').substring(0,8);const runs=j.run_count||0;return `<tr><td style="font-weight:500">${j.name||'-'}</td><td><span class="badge plan" style="font-family:monospace">${cron}</span></td><td style="font-family:monospace;font-size:.75rem">${agId}...</td><td>${runs}</td><td><span class="badge ${j.enabled!==false?'running':'stopped'}">${j.enabled!==false?'Enabled':'Disabled'}</span></td><td style="font-size:.8rem">${fmtDate(j.created_at)}</td><td><button class="btn-g" onclick="toggleSchedule('${j.id}',${!(j.enabled!==false)})">${j.enabled!==false?'Disable':'Enable'}</button> <button class="btn-r" onclick="deleteSchedule('${j.id}','${(j.name||'').replace(/'/g,"\\\\'")}')">Delete</button></td></tr>`}).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${jobs.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Cron</th><th>Agent</th><th>Runs</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-async function doCreateSchedulerJob(){const agentId=document.getElementById('sjAgentId').value.trim();if(!agentId){alert('Agent ID is required');return}const patVal=document.getElementById('sjPattern').value;let pattern;if(patVal==='content_match'){const sub=document.getElementById('sjSubstring').value.trim();if(!sub){alert('Match substring is required');return}pattern={content_match:{substring:sub}}}else{pattern=patVal}const body={agent_id:agentId,pattern,prompt_template:document.getElementById('sjPrompt').value,max_fires:parseInt(document.getElementById('sjMaxFires').value)||0};const d=await api('POST','/api/portal/scheduler',body);if(d.trigger_id||d.id){closeModal('createSchedulerModal');document.getElementById('sjAgentId').value='';renderScheduler()}else{alert(d.error||'Failed to create trigger')}}
+async function doCreateSchedulerJob(){const name=document.getElementById('sjName').value.trim();const cron=document.getElementById('sjCron').value.trim();const agentId=document.getElementById('sjAgentId').value.trim();const message=document.getElementById('sjMessage').value.trim();if(!name){alert('Job name is required');return}if(!cron){alert('Cron expression is required');return}if(!agentId){alert('Agent name or ID is required');return}if(!message){alert('Message is required');return}const body={name,cron,agent_id:agentId,message,enabled:true};const d=await api('POST','/api/portal/scheduler',body);if(d.id||d.schedule_id){closeModal('createSchedulerModal');document.getElementById('sjName').value='';document.getElementById('sjCron').value='';document.getElementById('sjAgentId').value='';document.getElementById('sjMessage').value='';renderScheduler()}else{alert(d.error||'Failed to create scheduled job')}}
 
-async function toggleTrigger(id,enabled){await api('PUT','/api/portal/scheduler/'+encodeURIComponent(id),{enabled});renderScheduler()}
-async function deleteTrigger(id){if(!confirm('Delete this trigger?'))return;await api('DELETE','/api/portal/scheduler/'+encodeURIComponent(id));renderScheduler()}
+async function toggleSchedule(id,enabled){await api('PUT','/api/portal/scheduler/'+encodeURIComponent(id),{enabled});renderScheduler()}
+async function deleteSchedule(id,name){if(!confirm('Delete scheduled job "'+name+'"?'))return;await api('DELETE','/api/portal/scheduler/'+encodeURIComponent(id));renderScheduler()}
 
 // Init + Permalink
 window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});
