@@ -8,7 +8,7 @@ use axum::response::IntoResponse;
 use axum::Json;
 
 use std::sync::Arc;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::db::{PortalState, load_data, save_data};
 use crate::models::*;
