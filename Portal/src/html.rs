@@ -473,7 +473,8 @@ async function renderAgent(t,canEdit){
   let html=`<div class="config-section" style="border-left:3px solid var(--o);padding-left:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>\u{1F517} OpenFang Agent</h3><span class="badge ${curAgentId?'running':'stopped'}">${curAgentId?'Linked':'Not linked'}</span></div>
     <p style="font-size:.8rem;color:var(--d);margin-bottom:10px">Select which OpenFang Agent handles messages for this tenant. Agents are managed on the <a href="${location.protocol}//openfang.com.vn" target="_blank" style="color:var(--o)">OpenFang Dashboard</a>.</p>
     <select id="openfangAgentId" ${dis} style="width:100%;padding:10px 12px;border:1px solid var(--b);border-radius:8px;font-size:.85rem;background:var(--bg)">${agentOpts}</select>
-    ${_openfangAgents.length===0?'<p style="font-size:.8rem;color:#c0392b;margin-top:6px">\u26A0\uFE0F No agents found on OpenFang. Create one on the OpenFang Dashboard first.</p>':''}
+    ${_openfangAgents.length===0?'<p style="font-size:.8rem;color:#c0392b;margin-top:6px">\u26A0\uFE0F No agents found on OpenFang. Create one below.</p>':''}
+    ${canEdit?`<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-o" onclick="createOpenFangAgent()" style="font-size:.8rem;padding:6px 14px">\u2795 Create New Agent</button><button onclick="stopOpenFangAgent()" style="font-size:.8rem;padding:6px 14px;background:#e74c3c;color:#fff;border:none;border-radius:6px;cursor:pointer">\u23F9 Stop Agent</button></div>`:''}
   </div>`;
   // Section 1: System Prompt with Templates
   const tplOpts=PROMPT_TEMPLATES.map(tp=>`<option value="${tp.name}">${tp.name}</option>`).join('');
@@ -537,6 +538,39 @@ async function saveAgentConfig(){
   const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[],language:document.getElementById('agentLang').value,webhook_url:document.getElementById('agentWebhook').value,openfang_agent_id:document.getElementById('openfangAgentId').value};
   const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
   if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);alert('Agent config saved!')}else{alert(d.error||'Failed')}
+}
+async function createOpenFangAgent(){
+  if(!D)return;
+  const name=prompt('Agent name:',D.name+' Agent');
+  if(!name)return;
+  const provider=D.provider||'groq';
+  const model=D.model||'llama-3.3-70b-versatile';
+  const sysPrompt=(document.getElementById('agentPrompt').value||'You are a helpful AI assistant.').replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n');
+  const toml=`name = "${name}"\nversion = "0.1.0"\ndescription = "Created from Portal tenant: ${D.name}"\nmodule = "builtin:chat"\n\n[model]\nprovider = "${provider}"\nmodel = "${model}"\ntemperature = ${D.temperature||0.7}\nsystem_prompt = "${sysPrompt}"\n`;
+  const d=await api('POST','/api/portal/system/agents',{manifest_toml:toml});
+  if(d.agent_id){
+    alert('Agent created: '+d.name+' ('+d.agent_id+')');
+    _openfangAgents=null;
+    document.getElementById('openfangAgentId').value=d.agent_id;
+    D.openfang_agent_id=d.agent_id;
+    await saveAgentConfig();
+    renderDetailBody();
+  }else{alert(d.error||'Failed to create agent')}
+}
+async function stopOpenFangAgent(){
+  const sel=document.getElementById('openfangAgentId');
+  const agentId=sel.value;
+  if(!agentId){alert('Please select an agent first');return}
+  const agentName=sel.options[sel.selectedIndex].text;
+  if(!confirm('Stop agent "'+agentName+'"? This will remove it from OpenFang.'))return;
+  const d=await api('DELETE','/api/portal/system/agents/'+agentId);
+  if(d.status==='killed'){
+    alert('Agent stopped.');
+    _openfangAgents=null;
+    D.openfang_agent_id=null;
+    await saveAgentConfig();
+    renderDetailBody();
+  }else{alert(d.error||'Failed to stop agent')}
 }
 async function cloneTenant(){
   if(!D)return;if(!confirm('Clone tenant "'+D.name+'"? A new copy will be created.'))return;

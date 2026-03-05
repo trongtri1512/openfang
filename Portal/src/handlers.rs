@@ -660,6 +660,16 @@ pub async fn portal_system_agents(State(state): State<Arc<PortalState>>, headers
     proxy_get(&state, "/api/agents").await.into_response()
 }
 
+pub async fn portal_create_agent(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/agents", body).await.into_response()
+}
+
+pub async fn portal_stop_agent(State(state): State<Arc<PortalState>>, Path(agent_id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, &format!("/api/agents/{}", agent_id)).await.into_response()
+}
+
 // ─── Write Proxies (push config to OpenFang) ─────────────────────────────────
 
 async fn proxy_post(state: &PortalState, path: &str, body: serde_json::Value) -> impl IntoResponse {
