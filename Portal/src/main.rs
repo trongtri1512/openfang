@@ -74,7 +74,6 @@ async fn main() {
         // Agent
         .route("/api/portal/tenants/{id}/agent", axum::routing::put(handlers::portal_update_agent))
         .route("/api/portal/tenants/{id}/chat", axum::routing::post(handlers::portal_chat))
-        .route("/api/portal/tenants/{id}/conversations", axum::routing::get(handlers::portal_conversations))
         // Self-service
         .route("/api/portal/my/tenants", axum::routing::post(handlers::portal_create_my_tenant))
         // Users CRUD (admin)
