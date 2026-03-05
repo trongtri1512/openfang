@@ -453,32 +453,15 @@ const PROMPT_TEMPLATES=[
   {name:'Onboarding Guide',prompt:'You are a friendly onboarding guide that helps new users get started. Walk them through features, answer questions about how things work, and provide tips for getting the most out of the platform.'},
 ];
 const LANGUAGES=[{code:'',name:'Auto Detect'},{code:'vi',name:'Vietnamese'},{code:'en',name:'English'},{code:'ja',name:'Japanese'},{code:'ko',name:'Korean'},{code:'zh',name:'Chinese'},{code:'th',name:'Thai'},{code:'fr',name:'French'},{code:'de',name:'German'},{code:'es',name:'Spanish'},{code:'pt',name:'Portuguese'}];
-let _agentSkills=null,_agentHands=null,_openfangAgents=null;
+let _agentSkills=null,_agentHands=null;
 async function renderAgent(t,canEdit){
   const dis=canEdit?'':'disabled';
   if(!_agentSkills){try{const d=await api('GET','/api/portal/system/skills');_agentSkills=d.skills||[]}catch(e){_agentSkills=[]}}
   if(!_agentHands){try{const d=await api('GET','/api/portal/system/hands');_agentHands=d.hands||[]}catch(e){_agentHands=[]}}
-  if(!_openfangAgents){try{const d=await api('GET','/api/portal/system/agents');_openfangAgents=Array.isArray(d)?d:[]}catch(e){_openfangAgents=[]}}
   const curSkills=t.skills||[];const curHands=t.hands||[];
-  // Section 0: OpenFang Agent Selector
-  const curAgentId=t.openfang_agent_id||'';
-  let agentOpts='<option value="">-- Select an OpenFang Agent --</option>';
-  _openfangAgents.forEach(a=>{
-    const sel=a.id===curAgentId?' selected':'';
-    const emoji=a.identity&&a.identity.emoji?a.identity.emoji:'\uD83E\uDD16';
-    const model=a.model_name||'unknown';
-    const profile=a.profile||'';
-    agentOpts+=`<option value="${a.id}"${sel}>${emoji} ${a.name} (${model})${profile?' — '+profile:''}</option>`;
-  });
-  let html=`<div class="config-section" style="border-left:3px solid var(--o);padding-left:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>\u{1F517} OpenFang Agent</h3><span class="badge ${curAgentId?'running':'stopped'}">${curAgentId?'Linked':'Not linked'}</span></div>
-    <p style="font-size:.8rem;color:var(--d);margin-bottom:10px">Select which OpenFang Agent handles messages for this tenant. Agents are managed on the <a href="${location.protocol}//openfang.com.vn" target="_blank" style="color:var(--o)">OpenFang Dashboard</a>.</p>
-    <select id="openfangAgentId" ${dis} style="width:100%;padding:10px 12px;border:1px solid var(--b);border-radius:8px;font-size:.85rem;background:var(--bg)">${agentOpts}</select>
-    ${_openfangAgents.length===0?'<p style="font-size:.8rem;color:#c0392b;margin-top:6px">\u26A0\uFE0F No agents found on OpenFang. Create one below.</p>':''}
-    ${canEdit?`<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-o" onclick="createOpenFangAgent()" style="font-size:.8rem;padding:6px 14px">\u2795 Create New Agent</button><button onclick="stopOpenFangAgent()" style="font-size:.8rem;padding:6px 14px;background:#e74c3c;color:#fff;border:none;border-radius:6px;cursor:pointer">\u23F9 Stop Agent</button></div>`:''}
-  </div>`;
   // Section 1: System Prompt with Templates
   const tplOpts=PROMPT_TEMPLATES.map(tp=>`<option value="${tp.name}">${tp.name}</option>`).join('');
-  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>System Prompt</h3><div style="display:flex;gap:8px;align-items:center"><select id="promptTemplate" onchange="applyTemplate()" ${dis} style="font-size:.8rem;padding:4px 8px;border:1px solid var(--b);border-radius:6px"><option value="">Load Template...</option>${tplOpts}</select><span class="badge plan">${(t.system_prompt||'').length} chars</span></div></div>
+  let html=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>System Prompt</h3><div style="display:flex;gap:8px;align-items:center"><select id="promptTemplate" onchange="applyTemplate()" ${dis} style="font-size:.8rem;padding:4px 8px;border:1px solid var(--b);border-radius:6px"><option value="">Load Template...</option>${tplOpts}</select><span class="badge plan">${(t.system_prompt||'').length} chars</span></div></div>
     <textarea id="agentPrompt" rows="8" style="width:100%;padding:12px;border:1px solid var(--b);border-radius:8px;font-family:'Inter',sans-serif;font-size:.85rem;resize:vertical;background:var(--bg)" placeholder="You are a helpful customer support agent..." ${dis}>${t.system_prompt||''}</textarea>
     <p style="font-size:.75rem;color:var(--d);margin-top:6px">Define your Agent's personality, rules, and knowledge. This prompt is sent at the start of every conversation.</p></div>`;
   // Section 2: Language & Webhook
@@ -535,42 +518,9 @@ function toggleHand(name,el){
 }
 async function saveAgentConfig(){
   if(!D)return;
-  const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[],language:document.getElementById('agentLang').value,webhook_url:document.getElementById('agentWebhook').value,openfang_agent_id:document.getElementById('openfangAgentId').value};
+  const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[],language:document.getElementById('agentLang').value,webhook_url:document.getElementById('agentWebhook').value};
   const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
   if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);alert('Agent config saved!')}else{alert(d.error||'Failed')}
-}
-async function createOpenFangAgent(){
-  if(!D)return;
-  const name=prompt('Agent name:',D.name+' Agent');
-  if(!name)return;
-  const provider=D.provider||'groq';
-  const model=D.model||'llama-3.3-70b-versatile';
-  const sysPrompt=(document.getElementById('agentPrompt').value||'You are a helpful AI assistant.').replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\n/g,'\\n');
-  const toml=`name = "${name}"\nversion = "0.1.0"\ndescription = "Created from Portal tenant: ${D.name}"\nmodule = "builtin:chat"\n\n[model]\nprovider = "${provider}"\nmodel = "${model}"\ntemperature = ${D.temperature||0.7}\nsystem_prompt = "${sysPrompt}"\n`;
-  const d=await api('POST','/api/portal/system/agents',{manifest_toml:toml});
-  if(d.agent_id){
-    alert('Agent created: '+d.name+' ('+d.agent_id+')');
-    _openfangAgents=null;
-    document.getElementById('openfangAgentId').value=d.agent_id;
-    D.openfang_agent_id=d.agent_id;
-    await saveAgentConfig();
-    renderDetailBody();
-  }else{alert(d.error||'Failed to create agent')}
-}
-async function stopOpenFangAgent(){
-  const sel=document.getElementById('openfangAgentId');
-  const agentId=sel.value;
-  if(!agentId){alert('Please select an agent first');return}
-  const agentName=sel.options[sel.selectedIndex].text;
-  if(!confirm('Stop agent "'+agentName+'"? This will remove it from OpenFang.'))return;
-  const d=await api('DELETE','/api/portal/system/agents/'+agentId);
-  if(d.status==='killed'){
-    alert('Agent stopped.');
-    _openfangAgents=null;
-    D.openfang_agent_id=null;
-    await saveAgentConfig();
-    renderDetailBody();
-  }else{alert(d.error||'Failed to stop agent')}
 }
 async function cloneTenant(){
   if(!D)return;if(!confirm('Clone tenant "'+D.name+'"? A new copy will be created.'))return;
