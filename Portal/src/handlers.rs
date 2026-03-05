@@ -562,7 +562,83 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
     if let Some(wh) = req.webhook_url { tenant.webhook_url = if wh.is_empty() { None } else { Some(wh) }; }
     let _ = save_data(&state, &data);
     info!(tenant_id = %id, "Updated agent config via portal");
-    Json(serde_json::json!({"ok":true})).into_response()
+
+    // ── Auto-deploy agent on OpenFang ──────────────────────────────────────
+    let deploy = req.deploy.unwrap_or(false);
+    if !deploy {
+        return Json(serde_json::json!({"ok":true,"deployed":false})).into_response();
+    }
+
+    // Re-read tenant to get latest saved config
+    let data = load_data(&state);
+    let tenant = match data.tenants.iter().find(|t| t.id == id) { Some(t) => t, None => return Json(serde_json::json!({"ok":true,"deployed":false,"error":"Tenant disappeared"})).into_response() };
+
+    let agent_name = format!("portal-{}", tenant.slug);
+    let provider = &tenant.provider;
+    let model = &tenant.model;
+    let sys_prompt = tenant.system_prompt.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+    let skills_toml = if tenant.skills.is_empty() { String::new() } else {
+        format!("\nskills = [{}]", tenant.skills.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", "))
+    };
+
+    let manifest_toml = format!(
+        "name = \"{agent_name}\"\nversion = \"0.1.0\"\ndescription = \"Auto-managed by Portal for tenant: {tenant_name}\"\nmodule = \"builtin:chat\"\n\n[model]\nprovider = \"{provider}\"\nmodel = \"{model}\"\ntemperature = {temp}\nsystem_prompt = \"{sys_prompt}\"\n{skills_toml}",
+        agent_name = agent_name,
+        tenant_name = tenant.name.replace('"', ""),
+        provider = provider,
+        model = model,
+        temp = tenant.temperature,
+        sys_prompt = sys_prompt,
+        skills_toml = skills_toml,
+    );
+
+    let client = reqwest::Client::new();
+
+    // Step 1: Find and kill existing agent with same name
+    let list_url = format!("{}/api/agents", state.openfang_api_url);
+    let mut list_req = client.get(&list_url);
+    if !state.openfang_api_key.is_empty() { list_req = list_req.header("Authorization", format!("Bearer {}", state.openfang_api_key)); }
+    if let Ok(resp) = list_req.send().await {
+        if let Ok(agents) = resp.json::<Vec<serde_json::Value>>().await {
+            for agent in &agents {
+                if agent.get("name").and_then(|n| n.as_str()) == Some(&agent_name) {
+                    if let Some(aid) = agent.get("id").and_then(|i| i.as_str()) {
+                        let kill_url = format!("{}/api/agents/{}", state.openfang_api_url, aid);
+                        let mut kill_req = client.delete(&kill_url);
+                        if !state.openfang_api_key.is_empty() { kill_req = kill_req.header("Authorization", format!("Bearer {}", state.openfang_api_key)); }
+                        let _ = kill_req.send().await;
+                        info!(tenant_id = %id, agent_id = %aid, "Killed existing portal-managed agent");
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 2: Create new agent
+    let spawn_url = format!("{}/api/agents", state.openfang_api_url);
+    let spawn_body = serde_json::json!({"manifest_toml": manifest_toml});
+    let mut spawn_req = client.post(&spawn_url).json(&spawn_body);
+    if !state.openfang_api_key.is_empty() { spawn_req = spawn_req.header("Authorization", format!("Bearer {}", state.openfang_api_key)); }
+
+    match spawn_req.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            if status.is_success() {
+                let agent_id = body.get("agent_id").and_then(|v| v.as_str()).unwrap_or("unknown");
+                info!(tenant_id = %id, agent_id = %agent_id, "Auto-deployed agent on OpenFang");
+                Json(serde_json::json!({"ok":true,"deployed":true,"agent_id":agent_id,"agent_name":agent_name})).into_response()
+            } else {
+                let err = body.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown error");
+                warn!(tenant_id = %id, error = %err, "Failed to deploy agent on OpenFang");
+                Json(serde_json::json!({"ok":true,"deployed":false,"deploy_error":err})).into_response()
+            }
+        }
+        Err(e) => {
+            warn!(tenant_id = %id, error = %e, "Failed to connect to OpenFang for agent deploy");
+            Json(serde_json::json!({"ok":true,"deployed":false,"deploy_error":format!("Connection failed: {e}")})).into_response()
+        }
+    }
 }
 
 // ─── Clone Tenant ────────────────────────────────────────────────────────────

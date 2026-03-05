@@ -233,6 +233,8 @@ pub struct PortalUpdateAgentRequest {
     pub hands: Option<Vec<String>>,
     pub language: Option<String>,
     pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub deploy: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

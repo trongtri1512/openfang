@@ -500,7 +500,7 @@ async function renderAgent(t,canEdit){
       <div style="margin-top:8px"><span class="badge ${active?'running':'stopped'}" style="font-size:.65rem">${active?'Active':'Inactive'}</span></div>
     </div>`;
   });html+=`</div></div>`;
-  if(canEdit){html+=`<div style="margin-top:16px"><button class="btn-o" onclick="saveAgentConfig()">Save Agent Config</button></div>`}
+  if(canEdit){html+=`<div style="margin-top:20px;display:flex;gap:10px;align-items:center"><button class="btn-o" onclick="saveAgentConfig()" style="padding:8px 20px">Save Config</button><button onclick="deployAgent()" style="padding:8px 20px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem">\u{1F680} Deploy Agent</button><span id="deployStatus" style="font-size:.8rem;color:var(--d)"></span></div>`}
   return html;
 }
 function applyTemplate(){const sel=document.getElementById('promptTemplate');const tpl=PROMPT_TEMPLATES.find(t=>t.name===sel.value);if(tpl&&tpl.prompt){document.getElementById('agentPrompt').value=tpl.prompt}}
@@ -521,6 +521,19 @@ async function saveAgentConfig(){
   const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[],language:document.getElementById('agentLang').value,webhook_url:document.getElementById('agentWebhook').value};
   const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
   if(d.ok){D=await api('GET','/api/portal/tenants/'+D.id);alert('Agent config saved!')}else{alert(d.error||'Failed')}
+}
+async function deployAgent(){
+  if(!D)return;
+  const st=document.getElementById('deployStatus');
+  st.innerHTML='<span style="color:var(--o)">Deploying...</span>';
+  const body={system_prompt:document.getElementById('agentPrompt').value,skills:D.skills||[],hands:D.hands||[],language:document.getElementById('agentLang').value,webhook_url:document.getElementById('agentWebhook').value,deploy:true};
+  const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
+  if(d.deployed){
+    st.innerHTML='<span style="color:#27ae60">\u2705 Deployed: '+d.agent_name+'</span>';
+    D=await api('GET','/api/portal/tenants/'+D.id);
+  }else{
+    st.innerHTML='<span style="color:#e74c3c">\u274C '+(d.deploy_error||'Deploy failed')+'</span>';
+  }
 }
 async function cloneTenant(){
   if(!D)return;if(!confirm('Clone tenant "'+D.name+'"? A new copy will be created.'))return;
