@@ -454,10 +454,10 @@ const PROMPT_TEMPLATES=[
 ];
 const LANGUAGES=[{code:'',name:'Auto Detect'},{code:'vi',name:'Vietnamese'},{code:'en',name:'English'},{code:'ja',name:'Japanese'},{code:'ko',name:'Korean'},{code:'zh',name:'Chinese'},{code:'th',name:'Thai'},{code:'fr',name:'French'},{code:'de',name:'German'},{code:'es',name:'Spanish'},{code:'pt',name:'Portuguese'}];
 let _agentSkills=null,_agentHands=null;
-const ARCHETYPES=[{v:'assistant',l:'\\u{1F916} Assistant'},{v:'support',l:'\\u{1F4DE} Support'},{v:'researcher',l:'\\u{1F52C} Researcher'},{v:'coder',l:'\\u{1F4BB} Coder'},{v:'writer',l:'\\u270D\\uFE0F Writer'},{v:'analyst',l:'\\u{1F4CA} Analyst'},{v:'devops',l:'\\u2699\\uFE0F DevOps'}];
+const ARCHETYPES=[{v:'assistant',l:'🤖 Assistant'},{v:'support',l:'📞 Support'},{v:'researcher',l:'🔬 Researcher'},{v:'coder',l:'💻 Coder'},{v:'writer',l:'✍️ Writer'},{v:'analyst',l:'📊 Analyst'},{v:'devops',l:'⚙️ DevOps'}];
 const VIBES=[{v:'professional',l:'Professional'},{v:'friendly',l:'Friendly'},{v:'technical',l:'Technical'},{v:'creative',l:'Creative'},{v:'concise',l:'Concise'},{v:'mentor',l:'Mentor'}];
 const GREETINGS=[{v:'warm',l:'Warm'},{v:'formal',l:'Formal'},{v:'playful',l:'Playful'},{v:'brief',l:'Brief'}];
-const PROFILES=[{v:'full',l:'\\u{1F310} Full — All tools'},{v:'coding',l:'\\u{1F4BB} Coding — file, shell, web'},{v:'research',l:'\\u{1F52C} Research — web, file'},{v:'messaging',l:'\\u{1F4E8} Messaging — agent, memory'},{v:'minimal',l:'\\u{1F512} Minimal — read-only'}];
+const PROFILES=[{v:'full',l:'🌐 Full — All tools'},{v:'coding',l:'💻 Coding — file, shell, web'},{v:'research',l:'🔬 Research — web, file'},{v:'messaging',l:'📨 Messaging — agent, memory'},{v:'minimal',l:'🔒 Minimal — read-only'}];
 async function renderAgent(t,canEdit){
   const dis=canEdit?'':'disabled';
   if(!_agentSkills){try{const d=await api('GET','/api/portal/system/skills');_agentSkills=d.skills||[]}catch(e){_agentSkills=[]}}
@@ -467,31 +467,31 @@ async function renderAgent(t,canEdit){
   const archOpts=ARCHETYPES.map(a=>`<option value="${a.v}"${(t.archetype||'assistant')===a.v?' selected':''}>${a.l}</option>`).join('');
   const vibeOpts=VIBES.map(v=>`<option value="${v.v}"${(t.vibe||'professional')===v.v?' selected':''}>${v.l}</option>`).join('');
   const greetOpts=GREETINGS.map(g=>`<option value="${g.v}"${(t.greeting_style||'warm')===g.v?' selected':''}>${g.l}</option>`).join('');
-  let html=`<div class="config-section" style="border-left:3px solid var(--o);padding-left:16px"><h3 style="margin-bottom:12px">\\u{1F3AD} Agent Identity</h3>
+  let html=`<div class="config-section" style="border-left:3px solid var(--o);padding-left:16px"><h3 style="margin-bottom:12px">🎭 Agent Identity</h3>
     <div class="config-row"><div class="fg"><label>Agent Name</label><input type="text" id="agentName" value="${t.agent_name||t.name+' Agent'}" placeholder="My AI Agent" ${dis}></div>
     <div class="fg"><label>Archetype</label><select id="agentArchetype" ${dis}>${archOpts}</select></div></div>
     <div class="config-row"><div class="fg"><label>Personality</label><select id="agentVibe" ${dis}>${vibeOpts}</select></div>
     <div class="fg"><label>Greeting Style</label><select id="agentGreeting" ${dis}>${greetOpts}</select></div></div></div>`;
   // Section 2: Model Info (read-only from Config tab)
-  html+=`<div class="config-section"><h3 style="margin-bottom:12px">\\u2699\\uFE0F Model Config</h3>
+  html+=`<div class="config-section"><h3 style="margin-bottom:12px">⚙️ Model Config</h3>
     <div class="config-row"><div class="fg"><label>Provider</label><input type="text" value="${t.provider||'groq'}" disabled style="opacity:.7"></div>
     <div class="fg"><label>Model</label><input type="text" value="${t.model||'llama-3.3-70b-versatile'}" disabled style="opacity:.7"></div>
     <div class="fg"><label>Temperature</label><input type="text" value="${t.temperature||0.7}" disabled style="opacity:.7"></div></div>
     <p style="font-size:.75rem;color:var(--d);margin-top:6px">Model settings are configured in the <b>Config</b> tab.</p></div>`;
   // Section 3: System Prompt with Templates
   const tplOpts=PROMPT_TEMPLATES.map(tp=>`<option value="${tp.name}">${tp.name}</option>`).join('');
-  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>\\u{1F4AC} System Prompt</h3><div style="display:flex;gap:8px;align-items:center"><select id="promptTemplate" onchange="applyTemplate()" ${dis} style="font-size:.8rem;padding:4px 8px;border:1px solid var(--b);border-radius:6px"><option value="">Load Template...</option>${tplOpts}</select><span class="badge plan">${(t.system_prompt||'').length} chars</span></div></div>
+  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>💬 System Prompt</h3><div style="display:flex;gap:8px;align-items:center"><select id="promptTemplate" onchange="applyTemplate()" ${dis} style="font-size:.8rem;padding:4px 8px;border:1px solid var(--b);border-radius:6px"><option value="">Load Template...</option>${tplOpts}</select><span class="badge plan">${(t.system_prompt||'').length} chars</span></div></div>
     <textarea id="agentPrompt" rows="8" style="width:100%;padding:12px;border:1px solid var(--b);border-radius:8px;font-family:'Inter',sans-serif;font-size:.85rem;resize:vertical;background:var(--bg)" placeholder="You are a helpful customer support agent..." ${dis}>${t.system_prompt||''}</textarea>
     <p style="font-size:.75rem;color:var(--d);margin-top:6px">Define your Agent's personality, rules, and knowledge. This prompt is sent at the start of every conversation.</p></div>`;
   // Section 4: Tool Profile
   const profOpts=PROFILES.map(p=>`<option value="${p.v}"${(t.tool_profile||'full')===p.v?' selected':''}>${p.l}</option>`).join('');
-  html+=`<div class="config-section"><h3 style="margin-bottom:12px">\\u{1F6E0}\\uFE0F Tool Profile</h3>
+  html+=`<div class="config-section"><h3 style="margin-bottom:12px">🛠️ Tool Profile</h3>
     <select id="agentProfile" ${dis} style="width:100%;padding:10px 12px;border:1px solid var(--b);border-radius:8px;font-size:.85rem;background:var(--bg)">${profOpts}</select>
     <p style="font-size:.75rem;color:var(--d);margin-top:6px">Determines which tools the agent can use. <b>Full</b> = all tools. <b>Minimal</b> = read-only.</p></div>`;
   // Section 5: Skills
   const skillCats={};
   _agentSkills.forEach(s=>{const cat=s.tags&&s.tags[0]?s.tags[0]:'other';if(!skillCats[cat])skillCats[cat]=[];skillCats[cat].push(s)});
-  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>\\u{1F4DA} Skills</h3><span class="badge running">${curSkills.length} active</span></div>
+  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>📚 Skills</h3><span class="badge running">${curSkills.length} active</span></div>
     <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Select specialized knowledge areas for your Agent.</p>`;
   Object.keys(skillCats).sort().forEach(cat=>{
     const skills=skillCats[cat];
@@ -504,7 +504,7 @@ async function renderAgent(t,canEdit){
   });html+=`</div>`;
   // Section 6: Hands
   const handIcons={'browser':'&#127760;','researcher':'&#128270;','collector':'&#128203;','lead':'&#128188;','predictor':'&#128200;','twitter':'&#128038;'};
-  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>\\u{1F9BE} Hands</h3><span class="badge running">${curHands.length} active</span></div>
+  html+=`<div class="config-section"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><h3>🦾 Hands</h3><span class="badge running">${curHands.length} active</span></div>
     <p style="font-size:.8rem;color:var(--d);margin-bottom:12px">Enable action capabilities for your Agent.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">`;
   _agentHands.forEach(h=>{
@@ -520,12 +520,12 @@ async function renderAgent(t,canEdit){
   });html+=`</div></div>`;
   // Section 7: Settings
   const langOpts=LANGUAGES.map(l=>`<option value="${l.code}"${(t.language||'')===l.code?' selected':''}>${l.name}</option>`).join('');
-  html+=`<div class="config-section"><h3 style="margin-bottom:12px">\\u2699\\uFE0F Settings</h3>
+  html+=`<div class="config-section"><h3 style="margin-bottom:12px">⚙️ Settings</h3>
     <div class="config-row"><div class="fg"><label>Primary Language</label><select id="agentLang" ${dis}>${langOpts}</select></div>
     <div class="fg"><label>Webhook URL</label><input type="url" id="agentWebhook" value="${t.webhook_url||''}" placeholder="https://your-crm.com/webhook" ${dis}></div></div>
     <p style="font-size:.75rem;color:var(--d);margin-top:6px">Language sets the default reply language. Webhook receives POST notifications for new messages.</p></div>`;
   // Action buttons
-  if(canEdit){html+=`<div style="margin-top:20px;display:flex;gap:10px;align-items:center"><button class="btn-o" onclick="saveAgentConfig()" style="padding:8px 20px">Save Config</button><button onclick="deployAgent()" style="padding:8px 20px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem">\\u{1F680} Deploy Agent</button><span id="deployStatus" style="font-size:.8rem;color:var(--d)"></span></div>`}
+  if(canEdit){html+=`<div style="margin-top:20px;display:flex;gap:10px;align-items:center"><button class="btn-o" onclick="saveAgentConfig()" style="padding:8px 20px">Save Config</button><button onclick="deployAgent()" style="padding:8px 20px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem">🚀 Deploy Agent</button><span id="deployStatus" style="font-size:.8rem;color:var(--d)"></span></div>`}
   return html;
 }
 function applyTemplate(){const sel=document.getElementById('promptTemplate');const tpl=PROMPT_TEMPLATES.find(t=>t.name===sel.value);if(tpl&&tpl.prompt){document.getElementById('agentPrompt').value=tpl.prompt}}
@@ -557,10 +557,10 @@ async function deployAgent(){
   const body=getAgentBody();body.deploy=true;
   const d=await api('PUT','/api/portal/tenants/'+D.id+'/agent',body);
   if(d.deployed){
-    st.innerHTML='<span style="color:#27ae60">\\u2705 Deployed: '+d.agent_name+'</span>';
+    st.innerHTML='<span style="color:#27ae60">✅ Deployed: '+d.agent_name+'</span>';
     D=await api('GET','/api/portal/tenants/'+D.id);
   }else{
-    st.innerHTML='<span style="color:#e74c3c">\\u274C '+(d.deploy_error||'Deploy failed')+'</span>';
+    st.innerHTML='<span style="color:#e74c3c">❌ '+(d.deploy_error||'Deploy failed')+'</span>';
   }
 }
 async function cloneTenant(){
