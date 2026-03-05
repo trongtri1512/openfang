@@ -15,6 +15,8 @@ pub struct PortalState {
     pub db_pool: Option<deadpool_postgres::Pool>,
     /// OpenFang API base URL for system proxy calls
     pub openfang_api_url: String,
+    /// OpenFang API key for authentication
+    pub openfang_api_key: String,
 }
 
 impl PortalState {
@@ -30,8 +32,10 @@ impl PortalState {
         let db_pool = Self::init_pool();
         let openfang_api_url = std::env::var("OPENFANG_API_URL")
             .unwrap_or_else(|_| "http://127.0.0.1:3000".into());
+        let openfang_api_key = std::env::var("OPENFANG_API_KEY")
+            .unwrap_or_default();
 
-        Self { data_dir, db_pool, openfang_api_url }
+        Self { data_dir, db_pool, openfang_api_url, openfang_api_key }
     }
 
     fn init_pool() -> Option<deadpool_postgres::Pool> {

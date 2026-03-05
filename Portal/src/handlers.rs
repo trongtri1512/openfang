@@ -574,7 +574,12 @@ pub async fn portal_conversations(State(state): State<Arc<PortalState>>, Path(id
 // ─── System API Proxies (calls OpenFang via HTTP) ────────────────────────────
 async fn proxy_get(state: &PortalState, path: &str) -> impl IntoResponse {
     let url = format!("{}{}", state.openfang_api_url, path);
-    match reqwest::get(&url).await {
+    let client = reqwest::Client::new();
+    let mut req = client.get(&url);
+    if !state.openfang_api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+    }
+    match req.send().await {
         Ok(resp) => match resp.json::<serde_json::Value>().await {
             Ok(json) => Json(json).into_response(),
             Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Parse error: {e}")}))).into_response(),

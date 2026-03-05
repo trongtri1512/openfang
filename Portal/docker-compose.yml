@@ -27,7 +27,7 @@ services:
     environment:
       - PORTAL_LISTEN=0.0.0.0:4201
       - PORTAL_DATABASE_URL=postgres://portal:portal@portal-db:5432/portal
-      - OPENFANG_API_URL=${OPENFANG_API_URL:-http://openfang:4200}
+      - OPENFANG_API_URL=${OPENFANG_API_URL:-https://openfangcom.vn}
       - PORTAL_ADMIN_KEY=${PORTAL_ADMIN_KEY:-}
       - OPENFANG_API_KEY=${OPENFANG_API_KEY:-}
       - RUST_LOG=${RUST_LOG:-info}
