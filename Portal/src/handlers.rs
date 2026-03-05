@@ -762,29 +762,6 @@ pub async fn portal_clone_tenant(State(state): State<Arc<PortalState>>, Path(id)
     Json(serde_json::json!({"ok":true,"tenant_id":new_id})).into_response()
 }
 
-// ─── Conversation History ────────────────────────────────────────────────────
-pub async fn portal_conversations(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
-    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
-    let data_check = load_data(&state);
-    if !is_admin_or_owner(&session, &data_check, &id) { return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response(); }
-    let conv_dir = state.data_dir.parent().unwrap_or(&state.data_dir).join("conversations").join(&id);
-    let mut conversations = vec![];
-    if conv_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&conv_dir) {
-            for entry in entries.flatten() {
-                if entry.path().extension().map(|e| e == "json").unwrap_or(false) {
-                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                        if let Ok(conv) = serde_json::from_str::<serde_json::Value>(&content) { conversations.push(conv); }
-                    }
-                }
-            }
-        }
-    }
-    conversations.sort_by(|a, b| b.get("created_at").and_then(|v| v.as_str()).cmp(&a.get("created_at").and_then(|v| v.as_str())));
-    let total = conversations.len();
-    Json(serde_json::json!({"conversations": conversations, "total": total})).into_response()
-}
-
 // ─── System API Proxies (calls OpenFang via HTTP) ────────────────────────────
 async fn proxy_get(state: &PortalState, path: &str) -> impl IntoResponse {
     let url = format!("{}{}", state.openfang_api_url, path);
