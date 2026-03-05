@@ -1,0 +1,4 @@
+# portal.openfang.com.vn → Portal (auto-SSL via Caddy)
+portal.openfang.com.vn {
+    reverse_proxy portal:4201
+}

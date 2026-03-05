@@ -1,6 +1,6 @@
-# BizClaw Portal — Standalone Docker Compose
-# Run: docker compose up --build
-# Access: http://localhost:4201/portal/
+# BizClaw Portal — Production Deployment
+# Domain: portal.openfang.com.vn (auto-SSL via Caddy)
+# Run: docker compose up --build -d
 
 version: "3.8"
 services:
@@ -22,13 +22,11 @@ services:
 
   portal:
     build: .
-    ports:
-      - "4201:4201"
     volumes:
       - portal-data:/data
     environment:
       - PORTAL_LISTEN=0.0.0.0:4201
-      - PORTAL_DATABASE_URL=${PORTAL_DATABASE_URL:-postgres://portal:portal@portal-db:5432/portal}
+      - PORTAL_DATABASE_URL=postgres://portal:portal@portal-db:5432/portal
       - OPENFANG_API_URL=${OPENFANG_API_URL:-http://openfang:4200}
       - PORTAL_ADMIN_KEY=${PORTAL_ADMIN_KEY:-}
       - OPENFANG_API_KEY=${OPENFANG_API_KEY:-}
@@ -38,14 +36,33 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - portal
+    restart: unless-stopped
+
 volumes:
   portal-pgdata:
   portal-data:
+  caddy-data:
+  caddy-config:
 
-    # To connect portal to the same Docker network as OpenFang:
-    # 1. Create external network: docker network create bizclaw
-    # 2. Add to both compose files:
-    #    networks:
-    #      default:
-    #        external: true
-    #        name: bizclaw
+    # Connect to OpenFang on the same network:
+    # Option 1: Use external network
+    #   docker network create bizclaw
+    #   Then uncomment below:
+    # networks:
+    #   default:
+    #     external: true
+    #     name: bizclaw
+    #
+    # Option 2: Use host networking for OPENFANG_API_URL
+    #   OPENFANG_API_URL=http://host.docker.internal:4200
