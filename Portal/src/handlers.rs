@@ -540,6 +540,7 @@ pub async fn portal_create_my_tenant(State(state): State<Arc<PortalState>>, head
         members: vec![TenantMember { email: session.email.clone(), role: "owner".into(), display_name: user.and_then(|u| u.display_name.clone()), added_at: now_iso(), last_login: None, password_hash: None }],
         access_token: generate_access_token(), created_at: now_iso(), version: format!("bizclaw-portal-{}", env!("CARGO_PKG_VERSION")),
         api_key: None, channels: vec![], system_prompt: String::new(), skills: vec![], hands: vec![], language: String::new(), webhook_url: None,
+        agent_name: None, archetype: None, vibe: None, greeting_style: None, tool_profile: None,
     };
     let tid = tenant.id.clone();
     data.tenants.push(tenant);
