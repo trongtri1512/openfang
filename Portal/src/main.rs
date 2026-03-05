@@ -91,6 +91,7 @@ async fn main() {
         .route("/api/portal/scheduler", axum::routing::get(handlers::portal_list_cron_jobs).post(handlers::portal_create_cron_job))
         .route("/api/portal/scheduler/{id}", axum::routing::put(handlers::portal_toggle_cron_job).delete(handlers::portal_delete_cron_job))
         // System API proxies (calls OpenFang via HTTP)
+        .route("/api/portal/system/agents", axum::routing::get(handlers::portal_system_agents))
         .route("/api/portal/system/channels", axum::routing::get(handlers::portal_system_channels))
         .route("/api/portal/system/providers", axum::routing::get(handlers::portal_system_providers))
         .route("/api/portal/system/models", axum::routing::get(handlers::portal_system_models))

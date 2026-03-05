@@ -71,6 +71,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .sbn{flex:1;padding:8px}
 .si{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:.85rem;font-weight:500;color:var(--d);cursor:pointer;transition:all .15s;text-decoration:none}
 .sb-label{padding:16px 12px 4px;font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m)}
+.wf-step{background:var(--bg2);border:1px solid var(--b);border-radius:10px;padding:14px;margin-bottom:8px;position:relative}.wf-step .step-num{position:absolute;top:10px;left:14px;font-size:.7rem;font-weight:600;color:var(--m)}.wf-step .step-del{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--r);cursor:pointer;font-size:1rem;padding:2px 6px}.wf-step .config-row{display:flex;gap:8px;margin-top:4px}.wf-step .fg{margin-top:6px}.wf-step label{font-size:.75rem;font-weight:500;color:var(--d)}.wf-step input,.wf-step select,.wf-step textarea{width:100%;padding:6px 10px;border:1px solid var(--b);border-radius:6px;font-size:.8rem;background:var(--bg);color:var(--t)}
 .si:hover{background:var(--bg2);color:var(--t)}.si.active{background:var(--ol);color:var(--o)}
 .si svg{width:18px;height:18px;flex-shrink:0}
 .sbb{padding:8px;border-top:1px solid var(--b)}
@@ -264,18 +265,19 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 
 <!-- Create Workflow Modal -->
 <div class="modal-bg" id="createWorkflowModal">
-  <div class="modal" style="max-width:640px">
+  <div class="modal" style="max-width:720px;max-height:90vh;overflow-y:auto">
     <h3>Create Workflow</h3>
     <div class="fg"><label>Template</label><select id="wfTemplate" onchange="fillWfTemplate()">
       <option value="custom">Custom Workflow</option>
       <option value="code-review">📝 Code Review Pipeline</option>
-      <option value="research-write">🔍 Research & Write Article</option>
+      <option value="research-write">🔍 Research &amp; Write Article</option>
       <option value="brainstorm">🧠 Multi-Agent Brainstorm</option>
       <option value="iterative">🔄 Iterative Refinement</option>
     </select></div>
-    <div class="fg"><label>Workflow Name</label><input type="text" id="wfName" placeholder="e.g. my-code-review"></div>
-    <div class="fg"><label>Description</label><input type="text" id="wfDesc" placeholder="What this workflow does"></div>
-    <div class="fg"><label>Steps (JSON)</label><textarea id="wfSteps" rows="10" style="width:100%;font-family:monospace;font-size:.8rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder='[{"name":"step1","agent_name":"my-agent","prompt":"{{input}}","mode":"sequential"}]'></textarea></div>
+    <div class="config-row"><div class="fg"><label>Name</label><input type="text" id="wfName" placeholder="e.g. my-code-review"></div><div class="fg"><label>Description</label><input type="text" id="wfDesc" placeholder="What this workflow does"></div></div>
+    <div style="margin:12px 0 4px"><label style="font-weight:600;font-size:.85rem">Steps</label></div>
+    <div id="wfStepsContainer"></div>
+    <button class="btn-g" style="width:100%;margin:8px 0" onclick="addWfStep()">+ Add Step</button>
     <div class="actions"><button class="btn-cancel" onclick="closeModal('createWorkflowModal')">Cancel</button><button class="btn-o" onclick="doCreateWorkflow()">Create Workflow</button></div>
   </div>
 </div>
@@ -817,7 +819,21 @@ async function doCreateMyTenant(){const name=document.getElementById('ctName').v
 // ─── Automation: Workflows ───────────────────────────────────────────────────
 const WF_TEMPLATES={'code-review':{name:'code-review-pipeline',desc:'Analyze code, review for issues, and produce a summary report',steps:[{name:'analyze',agent_name:'code-reviewer',prompt:'Analyze the following code for bugs, style issues, and security vulnerabilities:\n\n{{input}}',mode:'sequential',timeout_secs:180,error_mode:'fail',output_var:'analysis'},{name:'security-check',agent_name:'security-auditor',prompt:'Review this code analysis for security issues. Flag anything critical:\n\n{{analysis}}',mode:'sequential',timeout_secs:120,error_mode:'retry',max_retries:2,output_var:'security_review'},{name:'summary',agent_name:'writer',prompt:'Write a concise code review summary.\n\nCode Analysis:\n{{analysis}}\n\nSecurity Review:\n{{security_review}}',mode:'sequential',timeout_secs:60,error_mode:'fail'}]},'research-write':{name:'research-and-write',desc:'Research a topic, outline, write, and optionally fact-check',steps:[{name:'research',agent_name:'researcher',prompt:'Research the following topic thoroughly:\n\n{{input}}',mode:'sequential',timeout_secs:300,output_var:'research'},{name:'outline',agent_name:'planner',prompt:'Create a detailed article outline based on this research:\n\n{{research}}',mode:'sequential',timeout_secs:60,output_var:'outline'},{name:'write',agent_name:'writer',prompt:'Write a complete article.\n\nOutline:\n{{outline}}\n\nResearch:\n{{research}}',mode:'sequential',timeout_secs:300,output_var:'article'},{name:'fact-check',agent_name:'analyst',prompt:'Fact-check this article:\n\n{{article}}',mode:'conditional',condition:'claim',timeout_secs:120,error_mode:'skip'}]},'brainstorm':{name:'brainstorm',desc:'Parallel brainstorm with 3 agents, then synthesize',steps:[{name:'creative-ideas',agent_name:'writer',prompt:'Brainstorm 5 creative ideas for: {{input}}',mode:'fan_out',timeout_secs:60},{name:'technical-ideas',agent_name:'architect',prompt:'Brainstorm 5 technically feasible ideas for: {{input}}',mode:'fan_out',timeout_secs:60},{name:'business-ideas',agent_name:'analyst',prompt:'Brainstorm 5 ideas with strong business potential for: {{input}}',mode:'fan_out',timeout_secs:60},{name:'gather',agent_name:'planner',prompt:'unused',mode:'collect'},{name:'synthesize',agent_name:'orchestrator',prompt:'Synthesize brainstorm results into the top 5 actionable ideas:\n\n{{input}}',mode:'sequential',timeout_secs:120}]},'iterative':{name:'iterative-refinement',desc:'Refine a document until approved or max iterations reached',steps:[{name:'first-draft',agent_name:'writer',prompt:'Write a first draft about: {{input}}',mode:'sequential',timeout_secs:120,output_var:'draft'},{name:'review-and-refine',agent_name:'code-reviewer',prompt:'Review this draft. If it meets quality standards, respond with APPROVED. Otherwise, provide feedback and a revised version:\n\n{{input}}',mode:'loop',max_iterations:4,until:'APPROVED',timeout_secs:180,error_mode:'retry',max_retries:1}]}};
 
-function fillWfTemplate(){const tpl=document.getElementById('wfTemplate').value;if(tpl==='custom'){document.getElementById('wfName').value='';document.getElementById('wfDesc').value='';document.getElementById('wfSteps').value='';return}const t=WF_TEMPLATES[tpl];if(!t)return;document.getElementById('wfName').value=t.name;document.getElementById('wfDesc').value=t.desc;document.getElementById('wfSteps').value=JSON.stringify(t.steps,null,2)}
+let wfStepCount=0;
+let cachedAgents=null;
+async function loadAgentsList(){if(cachedAgents)return cachedAgents;try{const d=await api('GET','/api/portal/system/agents');cachedAgents=Array.isArray(d)?d:[];return cachedAgents}catch(e){return []}}
+
+function addWfStep(data){const c=document.getElementById('wfStepsContainer');const idx=wfStepCount++;const agName=data?data.agent_name||'':'';const prompt=data?data.prompt||data.prompt_template||'{{input}}':'{{input}}';const mode=data?data.mode||'sequential':'sequential';const errMode=data?data.error_mode||'fail':'fail';const sName=data?data.name||'step'+(idx+1):'step'+(idx+1);
+const div=document.createElement('div');div.className='wf-step';div.dataset.idx=idx;
+div.innerHTML=`<span class="step-num">STEP ${c.children.length+1}</span><button class="step-del" onclick="removeWfStep(this)">&times;</button><div style="margin-top:14px"><div class="config-row"><div class="fg" style="flex:1"><label>Step Name</label><input type="text" class="ws-name" value="${sName}"></div><div class="fg" style="flex:1"><label>Agent Name</label><div style="position:relative"><input type="text" class="ws-agent" value="${agName}" placeholder="e.g. writer" list="agentList${idx}"><datalist id="agentList${idx}"></datalist></div></div></div><div class="fg"><label>Prompt Template</label><textarea class="ws-prompt" rows="2" style="resize:vertical">${prompt}</textarea></div><div class="config-row"><div class="fg" style="flex:1"><label>Mode</label><select class="ws-mode"><option value="sequential"${mode==='sequential'?' selected':''}>Sequential</option><option value="fan_out"${mode==='fan_out'?' selected':''}>Fan Out (parallel)</option><option value="collect"${mode==='collect'?' selected':''}>Collect</option><option value="conditional"${mode==='conditional'?' selected':''}>Conditional</option><option value="loop"${mode==='loop'?' selected':''}>Loop</option></select></div><div class="fg" style="flex:1"><label>On Error</label><select class="ws-err"><option value="fail"${errMode==='fail'?' selected':''}>Fail</option><option value="skip"${errMode==='skip'?' selected':''}>Skip</option><option value="retry"${errMode==='retry'?' selected':''}>Retry</option></select></div></div></div>`;
+c.appendChild(div);
+loadAgentsList().then(agents=>{const dl=div.querySelector('datalist');agents.forEach(a=>{const o=document.createElement('option');o.value=a.name||a.id;dl.appendChild(o)})});
+renumberSteps()}
+
+function removeWfStep(btn){btn.closest('.wf-step').remove();renumberSteps()}
+function renumberSteps(){document.querySelectorAll('#wfStepsContainer .wf-step').forEach((el,i)=>{el.querySelector('.step-num').textContent='STEP '+(i+1)})}
+
+function fillWfTemplate(){const tpl=document.getElementById('wfTemplate').value;const c=document.getElementById('wfStepsContainer');c.innerHTML='';wfStepCount=0;if(tpl==='custom'){document.getElementById('wfName').value='';document.getElementById('wfDesc').value='';addWfStep();return}const t=WF_TEMPLATES[tpl];if(!t)return;document.getElementById('wfName').value=t.name;document.getElementById('wfDesc').value=t.desc;t.steps.forEach(s=>addWfStep(s))}
 
 async function renderWorkflows(){
   const d=await api('GET','/api/portal/workflows');
@@ -828,7 +844,7 @@ async function renderWorkflows(){
   document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${wfs.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Description</th><th>Steps</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-async function doCreateWorkflow(){const name=document.getElementById('wfName').value.trim();const desc=document.getElementById('wfDesc').value.trim();const stepsRaw=document.getElementById('wfSteps').value.trim();if(!name){alert('Workflow name is required');return}let steps;try{steps=JSON.parse(stepsRaw)}catch(e){alert('Invalid JSON in steps: '+e.message);return}if(!Array.isArray(steps)){alert('Steps must be a JSON array');return}const body={name,description:desc,steps};const d=await api('POST','/api/portal/workflows',body);if(d.workflow_id||d.id){closeModal('createWorkflowModal');document.getElementById('wfName').value='';document.getElementById('wfDesc').value='';document.getElementById('wfSteps').value='';document.getElementById('wfTemplate').value='custom';renderWorkflows()}else{alert(d.error||'Failed to create workflow')}}
+async function doCreateWorkflow(){const name=document.getElementById('wfName').value.trim();const desc=document.getElementById('wfDesc').value.trim();if(!name){alert('Workflow name is required');return}const stepEls=document.querySelectorAll('#wfStepsContainer .wf-step');if(stepEls.length===0){alert('Add at least one step');return}const steps=[];for(const el of stepEls){const sn=el.querySelector('.ws-name').value.trim()||'step';const ag=el.querySelector('.ws-agent').value.trim();if(!ag){alert('Agent name is required for step "'+sn+'"');return}const pr=el.querySelector('.ws-prompt').value;const md=el.querySelector('.ws-mode').value;const em=el.querySelector('.ws-err').value;const step={name:sn,agent_name:ag,prompt:pr,mode:md,error_mode:em};steps.push(step)}const body={name,description:desc,steps};const d=await api('POST','/api/portal/workflows',body);if(d.workflow_id||d.id){closeModal('createWorkflowModal');renderWorkflows()}else{alert(d.error||'Failed to create workflow')}}
 
 let runWfId=null;
 function openRunWorkflow(id){runWfId=id;document.getElementById('wfRunInput').value='';document.getElementById('wfRunResult').innerHTML='';document.getElementById('wfRunBtn').disabled=false;openModal('runWorkflowModal')}
