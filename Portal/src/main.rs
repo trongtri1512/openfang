@@ -87,6 +87,7 @@ async fn main() {
         .route("/api/portal/system/models", axum::routing::get(handlers::portal_system_models))
         .route("/api/portal/system/skills", axum::routing::get(handlers::portal_system_skills))
         .route("/api/portal/system/hands", axum::routing::get(handlers::portal_system_hands))
+        .route("/api/portal/system/agents", axum::routing::get(handlers::portal_system_agents))
         // Write proxies → push config to OpenFang
         .route("/api/portal/system/channels/{name}/configure", axum::routing::post(handlers::portal_system_channel_configure).delete(handlers::portal_system_channel_remove))
         .route("/api/portal/system/channels/reload", axum::routing::post(handlers::portal_system_channels_reload))

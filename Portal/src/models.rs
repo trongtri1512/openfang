@@ -39,6 +39,8 @@ pub struct Tenant {
     pub language: String,
     #[serde(default)]
     pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub openfang_agent_id: Option<String>,
 }
 
 /// A channel configured for a specific tenant.
@@ -233,6 +235,7 @@ pub struct PortalUpdateAgentRequest {
     pub hands: Option<Vec<String>>,
     pub language: Option<String>,
     pub webhook_url: Option<String>,
+    pub openfang_agent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

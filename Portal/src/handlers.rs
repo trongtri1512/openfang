@@ -560,6 +560,7 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
     if let Some(hands) = req.hands { tenant.hands = hands; }
     if let Some(lang) = req.language { tenant.language = lang; }
     if let Some(wh) = req.webhook_url { tenant.webhook_url = if wh.is_empty() { None } else { Some(wh) }; }
+    if let Some(agent_id) = req.openfang_agent_id { tenant.openfang_agent_id = if agent_id.is_empty() { None } else { Some(agent_id) }; }
     let _ = save_data(&state, &data);
     info!(tenant_id = %id, "Updated agent config via portal");
     Json(serde_json::json!({"ok":true})).into_response()
@@ -652,6 +653,11 @@ pub async fn portal_system_skills(State(state): State<Arc<PortalState>>, headers
 pub async fn portal_system_hands(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_get(&state, "/api/hands").await.into_response()
+}
+
+pub async fn portal_system_agents(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/agents").await.into_response()
 }
 
 // ─── Write Proxies (push config to OpenFang) ─────────────────────────────────
