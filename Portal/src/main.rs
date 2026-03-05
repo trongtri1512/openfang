@@ -73,6 +73,7 @@ async fn main() {
         .route("/api/portal/tenants/{id}/channels/config", axum::routing::put(handlers::portal_update_channel_config))
         // Agent
         .route("/api/portal/tenants/{id}/agent", axum::routing::put(handlers::portal_update_agent))
+        .route("/api/portal/tenants/{id}/chat", axum::routing::post(handlers::portal_chat))
         // Self-service
         .route("/api/portal/my/tenants", axum::routing::post(handlers::portal_create_my_tenant))
         // Users CRUD (admin)

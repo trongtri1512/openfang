@@ -150,6 +150,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 /* Warning */
 .warn{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--ol);border:1px solid #fed7aa;border-radius:10px;font-size:.85rem;color:#9a3412;margin-bottom:16px}
 @media(max-width:900px){.login-screen{flex-direction:column}.login-left{display:none}.login-right{width:100%;min-height:100vh}.sb{display:none}.mn{margin-left:0}}
+@media(max-width:768px){.tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:0;padding-bottom:4px}.tab{white-space:nowrap;flex-shrink:0;padding:8px 12px;font-size:.8rem}.config-section{padding:12px}.config-row{flex-direction:column;gap:8px}.dh h2{font-size:1.1rem}.dh-meta{font-size:.75rem}.mn{padding:12px}#headerActions{flex-wrap:wrap;gap:6px}#headerActions a,#headerActions button{font-size:.75rem;padding:6px 10px}.dt{font-size:.8rem}.dt th,.dt td{padding:6px 8px}}
 </style>
 </head>
 <body>
@@ -301,13 +302,14 @@ async function renderDetailBody(){
   const canEdit=isAdmin||isOwner;
   const bc=`<div class="bc"><a onclick="showPage('tenants')">Tenants</a> &gt; ${t.name}</div>`;
   const header=`<div class="dh"><h2>${t.name}</h2></div><div class="dh-meta"><span>${t.slug}</span> &middot; <span class="badge ${t.status}">${t.status==='running'?'Running':'Stopped'}</span></div>`;
-  const TABS=['Overview','Config','Channels','Agent','Usage','Members','History'];
+  const TABS=['Overview','Config','Channels','Agent','Assistant','Usage','Members','History'];
   const tabsHtml=`<div class="tabs">${TABS.map(tb=>`<div class="tab${CTab===tb.toLowerCase()?' active':''}" onclick="CTab='${tb.toLowerCase()}';renderDetailBody()">${tb}</div>`).join('')}</div>`;
   let body='';
   if(CTab==='overview') body=renderOverview(t);
   else if(CTab==='config') body=await renderConfig(t);
   else if(CTab==='channels') body=await renderChannels(t);
   else if(CTab==='agent') body=await renderAgent(t,canEdit);
+  else if(CTab==='assistant') body=renderAssistant(t);
   else if(CTab==='usage') body=renderUsage(t);
   else if(CTab==='members') body=renderMembersTab(t,isAdmin);
   else if(CTab==='history') body=await renderHistory(t);
@@ -562,6 +564,44 @@ async function deployAgent(){
   }else{
     st.innerHTML='<span style="color:#e74c3c">❌ '+(d.deploy_error||'Deploy failed')+'</span>';
   }
+}
+let chatHistory={};
+function renderAssistant(t){
+  if(!chatHistory[t.id])chatHistory[t.id]=[];
+  const msgs=chatHistory[t.id];
+  const msgsHtml=msgs.map(m=>`<div style="display:flex;justify-content:${m.role==='user'?'flex-end':'flex-start'};margin-bottom:8px"><div style="max-width:80%;padding:10px 14px;border-radius:${m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px'};background:${m.role==='user'?'var(--o)':'var(--bg2)'};color:${m.role==='user'?'#fff':'var(--t)'};font-size:.85rem;line-height:1.5;word-break:break-word;white-space:pre-wrap">${escHtml(m.text)}</div></div>`).join('');
+  return `<div class="config-section" style="padding:0;display:flex;flex-direction:column;height:60vh;min-height:400px">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between">
+      <div><b>💬 ${t.agent_name||t.name+' Agent'}</b><span style="font-size:.75rem;color:var(--d);margin-left:8px">${t.provider}/${t.model}</span></div>
+      <button class="btn-g" onclick="chatHistory['${t.id}']=[]; renderDetailBody()" style="font-size:.75rem;padding:4px 10px">Clear</button>
+    </div>
+    <div id="chatMsgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column">${msgsHtml||'<div style="text-align:center;color:var(--d);margin:auto;font-size:.85rem">Send a message to start chatting with your agent.<br>Make sure to <b>Deploy</b> first in the Agent tab.</div>'}</div>
+    <div style="padding:12px 16px;border-top:1px solid var(--b);display:flex;gap:8px">
+      <input type="text" id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg()}" style="flex:1;padding:10px 14px;border:1px solid var(--b);border-radius:20px;font-size:.85rem;outline:none;background:var(--bg)">
+      <button onclick="sendChatMsg()" style="padding:10px 20px;background:var(--o);color:#fff;border:none;border-radius:20px;cursor:pointer;font-weight:600;font-size:.85rem;white-space:nowrap">Send</button>
+    </div>
+  </div>`;
+}
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+async function sendChatMsg(){
+  if(!D)return;
+  const inp=document.getElementById('chatInput');
+  const msg=inp.value.trim();if(!msg)return;
+  if(!chatHistory[D.id])chatHistory[D.id]=[];
+  chatHistory[D.id].push({role:'user',text:msg});
+  inp.value='';renderDetailBody();
+  const el=document.getElementById('chatMsgs');if(el)el.scrollTop=el.scrollHeight;
+  // Show typing indicator
+  chatHistory[D.id].push({role:'assistant',text:'...'});renderDetailBody();
+  if(el)el.scrollTop=el.scrollHeight;
+  try{
+    const d=await api('POST','/api/portal/tenants/'+D.id+'/chat',{message:msg});
+    chatHistory[D.id].pop();// remove typing
+    if(d.error){chatHistory[D.id].push({role:'assistant',text:'❌ '+d.error})}
+    else{chatHistory[D.id].push({role:'assistant',text:d.response||'(no response)'})}
+  }catch(e){chatHistory[D.id].pop();chatHistory[D.id].push({role:'assistant',text:'❌ Connection error'})}
+  renderDetailBody();
+  const el2=document.getElementById('chatMsgs');if(el2)el2.scrollTop=el2.scrollHeight;
 }
 async function cloneTenant(){
   if(!D)return;if(!confirm('Clone tenant "'+D.name+'"? A new copy will be created.'))return;

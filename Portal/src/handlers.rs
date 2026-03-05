@@ -655,6 +655,51 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
     }
 }
 
+// ─── Chat with Agent ─────────────────────────────────────────────────────────
+pub async fn portal_chat(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(req): Json<serde_json::Value>) -> impl IntoResponse {
+    let _session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data = load_data(&state);
+    let tenant = match data.tenants.iter().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    let agent_name = tenant.agent_name.clone().unwrap_or_else(|| format!("portal-{}", tenant.slug));
+    let message = req.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if message.is_empty() { return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"Message is required"}))).into_response(); }
+
+    let client = reqwest::Client::new();
+    let auth = if !state.openfang_api_key.is_empty() { Some(format!("Bearer {}", state.openfang_api_key)) } else { None };
+
+    // Find agent ID by name
+    let list_url = format!("{}/api/agents", state.openfang_api_url);
+    let mut list_req = client.get(&list_url);
+    if let Some(ref a) = auth { list_req = list_req.header("Authorization", a.clone()); }
+    let agent_id = match list_req.send().await {
+        Ok(resp) => {
+            let agents: Vec<serde_json::Value> = resp.json().await.unwrap_or_default();
+            agents.iter().find(|a| a.get("name").and_then(|n| n.as_str()) == Some(&agent_name))
+                .and_then(|a| a.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
+        }
+        Err(_) => None,
+    };
+    let agent_id = match agent_id {
+        Some(id) => id,
+        None => return Json(serde_json::json!({"error":format!("Agent '{}' not found. Deploy the agent first.", agent_name)})).into_response(),
+    };
+
+    // Send message
+    let msg_url = format!("{}/api/agents/{}/message", state.openfang_api_url, agent_id);
+    let mut msg_req = client.post(&msg_url).json(&serde_json::json!({"message": message}));
+    if let Some(ref a) = auth { msg_req = msg_req.header("Authorization", a.clone()); }
+
+    match msg_req.send().await {
+        Ok(resp) => {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            Json(body).into_response()
+        }
+        Err(e) => {
+            Json(serde_json::json!({"error":format!("Failed to reach agent: {e}")})).into_response()
+        }
+    }
+}
+
 // ─── Clone Tenant ────────────────────────────────────────────────────────────
 pub async fn portal_clone_tenant(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
