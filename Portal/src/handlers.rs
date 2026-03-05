@@ -352,11 +352,47 @@ pub async fn portal_update_channel_config(State(state): State<Arc<PortalState>>,
     let mut data = load_data(&state);
     let tenant = match data.tenants.iter_mut().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
     let channel = match tenant.channels.iter_mut().find(|c| c.name == req.channel_name) { Some(c) => c, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel not found"}))).into_response() };
+    let channel_type = channel.channel_type.clone();
     if let (Some(existing), Some(new_obj)) = (channel.config.as_object_mut(), req.config.as_object()) {
         for (k, v) in new_obj { existing.insert(k.clone(), v.clone()); }
     } else { channel.config = req.config; }
+    let final_config = channel.config.clone();
     let _ = save_data(&state, &data);
     info!(tenant_id = %id, channel = %req.channel_name, "Updated per-tenant channel config");
+
+    // Push channel config to OpenFang so it actually starts working
+    // OpenFang expects: {"fields": {"bot_token": "...", ...}}
+    let openfang_body = serde_json::json!({"fields": final_config});
+    let openfang_url = format!("{}/api/channels/{}/configure", state.openfang_api_url, channel_type);
+    let client = reqwest::Client::new();
+    let mut openfang_req = client.post(&openfang_url).json(&openfang_body);
+    if !state.openfang_api_key.is_empty() {
+        openfang_req = openfang_req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+    }
+    match openfang_req.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                info!(channel_type = %channel_type, "Pushed channel config to OpenFang successfully");
+                // Also reload channels on OpenFang
+                let reload_url = format!("{}/api/channels/reload", state.openfang_api_url);
+                let mut reload_req = client.post(&reload_url);
+                if !state.openfang_api_key.is_empty() {
+                    reload_req = reload_req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+                }
+                let _ = reload_req.send().await;
+            } else {
+                let body = resp.text().await.unwrap_or_default();
+                tracing::warn!(channel_type = %channel_type, status = %status, body = %body, "Failed to push channel config to OpenFang");
+                return Json(serde_json::json!({"ok":true, "warning": format!("Saved locally but OpenFang returned {}: {}", status, body)})).into_response();
+            }
+        },
+        Err(e) => {
+            tracing::warn!(channel_type = %channel_type, error = %e, "Failed to connect to OpenFang for channel config");
+            return Json(serde_json::json!({"ok":true, "warning": format!("Saved locally but could not reach OpenFang: {}", e)})).into_response();
+        }
+    }
+
     Json(serde_json::json!({"ok":true})).into_response()
 }
 
