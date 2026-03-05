@@ -560,6 +560,11 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
     if let Some(hands) = req.hands { tenant.hands = hands; }
     if let Some(lang) = req.language { tenant.language = lang; }
     if let Some(wh) = req.webhook_url { tenant.webhook_url = if wh.is_empty() { None } else { Some(wh) }; }
+    if let Some(name) = req.agent_name { tenant.agent_name = if name.is_empty() { None } else { Some(name) }; }
+    if let Some(v) = req.archetype { tenant.archetype = if v.is_empty() { None } else { Some(v) }; }
+    if let Some(v) = req.vibe { tenant.vibe = if v.is_empty() { None } else { Some(v) }; }
+    if let Some(v) = req.greeting_style { tenant.greeting_style = if v.is_empty() { None } else { Some(v) }; }
+    if let Some(v) = req.tool_profile { tenant.tool_profile = if v.is_empty() { None } else { Some(v) }; }
     let _ = save_data(&state, &data);
     info!(tenant_id = %id, "Updated agent config via portal");
 
@@ -569,35 +574,31 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
         return Json(serde_json::json!({"ok":true,"deployed":false})).into_response();
     }
 
-    // Re-read tenant to get latest saved config
     let data = load_data(&state);
     let tenant = match data.tenants.iter().find(|t| t.id == id) { Some(t) => t, None => return Json(serde_json::json!({"ok":true,"deployed":false,"error":"Tenant disappeared"})).into_response() };
 
-    let agent_name = format!("portal-{}", tenant.slug);
+    let agent_name = tenant.agent_name.clone().unwrap_or_else(|| format!("portal-{}", tenant.slug));
     let provider = &tenant.provider;
     let model = &tenant.model;
     let sys_prompt = tenant.system_prompt.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+    let profile = tenant.tool_profile.as_deref().unwrap_or("full");
+
     let skills_toml = if tenant.skills.is_empty() { String::new() } else {
         format!("\nskills = [{}]", tenant.skills.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", "))
     };
 
     let manifest_toml = format!(
-        "name = \"{agent_name}\"\nversion = \"0.1.0\"\ndescription = \"Auto-managed by Portal for tenant: {tenant_name}\"\nmodule = \"builtin:chat\"\n\n[model]\nprovider = \"{provider}\"\nmodel = \"{model}\"\ntemperature = {temp}\nsystem_prompt = \"{sys_prompt}\"\n{skills_toml}",
-        agent_name = agent_name,
-        tenant_name = tenant.name.replace('"', ""),
-        provider = provider,
-        model = model,
-        temp = tenant.temperature,
-        sys_prompt = sys_prompt,
-        skills_toml = skills_toml,
+        "name = \"{}\"\nversion = \"0.1.0\"\ndescription = \"Auto-managed by Portal for tenant: {}\"\nmodule = \"builtin:chat\"\nprofile = \"{}\"\n\n[model]\nprovider = \"{}\"\nmodel = \"{}\"\ntemperature = {}\nsystem_prompt = \"{}\"\n{}",
+        agent_name.replace('"', ""), tenant.name.replace('"', ""), profile, provider, model, tenant.temperature, sys_prompt, skills_toml,
     );
 
     let client = reqwest::Client::new();
+    let auth_hdr = if !state.openfang_api_key.is_empty() { Some(format!("Bearer {}", state.openfang_api_key)) } else { None };
 
     // Step 1: Find and kill existing agent with same name
     let list_url = format!("{}/api/agents", state.openfang_api_url);
     let mut list_req = client.get(&list_url);
-    if !state.openfang_api_key.is_empty() { list_req = list_req.header("Authorization", format!("Bearer {}", state.openfang_api_key)); }
+    if let Some(ref a) = auth_hdr { list_req = list_req.header("Authorization", a.clone()); }
     if let Ok(resp) = list_req.send().await {
         if let Ok(agents) = resp.json::<Vec<serde_json::Value>>().await {
             for agent in &agents {
@@ -605,7 +606,7 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
                     if let Some(aid) = agent.get("id").and_then(|i| i.as_str()) {
                         let kill_url = format!("{}/api/agents/{}", state.openfang_api_url, aid);
                         let mut kill_req = client.delete(&kill_url);
-                        if !state.openfang_api_key.is_empty() { kill_req = kill_req.header("Authorization", format!("Bearer {}", state.openfang_api_key)); }
+                        if let Some(ref a) = auth_hdr { kill_req = kill_req.header("Authorization", a.clone()); }
                         let _ = kill_req.send().await;
                         info!(tenant_id = %id, agent_id = %aid, "Killed existing portal-managed agent");
                     }
@@ -618,15 +619,27 @@ pub async fn portal_update_agent(State(state): State<Arc<PortalState>>, Path(id)
     let spawn_url = format!("{}/api/agents", state.openfang_api_url);
     let spawn_body = serde_json::json!({"manifest_toml": manifest_toml});
     let mut spawn_req = client.post(&spawn_url).json(&spawn_body);
-    if !state.openfang_api_key.is_empty() { spawn_req = spawn_req.header("Authorization", format!("Bearer {}", state.openfang_api_key)); }
+    if let Some(ref a) = auth_hdr { spawn_req = spawn_req.header("Authorization", a.clone()); }
 
     match spawn_req.send().await {
         Ok(resp) => {
-            let status = resp.status();
+            let st = resp.status();
             let body: serde_json::Value = resp.json().await.unwrap_or_default();
-            if status.is_success() {
-                let agent_id = body.get("agent_id").and_then(|v| v.as_str()).unwrap_or("unknown");
+            if st.is_success() {
+                let agent_id = body.get("agent_id").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
                 info!(tenant_id = %id, agent_id = %agent_id, "Auto-deployed agent on OpenFang");
+
+                // Step 3: Set agent identity
+                let identity = serde_json::json!({
+                    "archetype": tenant.archetype.as_deref().unwrap_or("assistant"),
+                    "vibe": tenant.vibe.as_deref().unwrap_or("professional"),
+                    "greeting_style": tenant.greeting_style.as_deref().unwrap_or("warm"),
+                });
+                let id_url = format!("{}/api/agents/{}/identity", state.openfang_api_url, agent_id);
+                let mut id_req = client.put(&id_url).json(&identity);
+                if let Some(ref a) = auth_hdr { id_req = id_req.header("Authorization", a.clone()); }
+                let _ = id_req.send().await;
+
                 Json(serde_json::json!({"ok":true,"deployed":true,"agent_id":agent_id,"agent_name":agent_name})).into_response()
             } else {
                 let err = body.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown error");

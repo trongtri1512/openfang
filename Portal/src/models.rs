@@ -39,6 +39,16 @@ pub struct Tenant {
     pub language: String,
     #[serde(default)]
     pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub agent_name: Option<String>,
+    #[serde(default)]
+    pub archetype: Option<String>,
+    #[serde(default)]
+    pub vibe: Option<String>,
+    #[serde(default)]
+    pub greeting_style: Option<String>,
+    #[serde(default)]
+    pub tool_profile: Option<String>,
 }
 
 /// A channel configured for a specific tenant.
@@ -233,6 +243,11 @@ pub struct PortalUpdateAgentRequest {
     pub hands: Option<Vec<String>>,
     pub language: Option<String>,
     pub webhook_url: Option<String>,
+    pub agent_name: Option<String>,
+    pub archetype: Option<String>,
+    pub vibe: Option<String>,
+    pub greeting_style: Option<String>,
+    pub tool_profile: Option<String>,
     #[serde(default)]
     pub deploy: Option<bool>,
 }
