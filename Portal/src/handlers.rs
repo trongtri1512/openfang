@@ -613,3 +613,91 @@ pub async fn portal_system_hands(State(state): State<Arc<PortalState>>, headers:
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_get(&state, "/api/hands").await.into_response()
 }
+
+// ─── Write Proxies (push config to OpenFang) ─────────────────────────────────
+
+async fn proxy_post(state: &PortalState, path: &str, body: serde_json::Value) -> impl IntoResponse {
+    let url = format!("{}{}", state.openfang_api_url, path);
+    let client = reqwest::Client::new();
+    let mut req = client.post(&url).json(&body);
+    if !state.openfang_api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+    }
+    match req.send().await {
+        Ok(resp) => match resp.json::<serde_json::Value>().await {
+            Ok(json) => Json(json).into_response(),
+            Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Parse error: {e}")}))).into_response(),
+        },
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Proxy error: {e}")}))).into_response(),
+    }
+}
+
+async fn proxy_delete(state: &PortalState, path: &str) -> impl IntoResponse {
+    let url = format!("{}{}", state.openfang_api_url, path);
+    let client = reqwest::Client::new();
+    let mut req = client.delete(&url);
+    if !state.openfang_api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+    }
+    match req.send().await {
+        Ok(resp) => match resp.json::<serde_json::Value>().await {
+            Ok(json) => Json(json).into_response(),
+            Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Parse error: {e}")}))).into_response(),
+        },
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Proxy error: {e}")}))).into_response(),
+    }
+}
+
+/// Configure a channel on OpenFang: POST /api/channels/{name}/configure
+pub async fn portal_system_channel_configure(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, &format!("/api/channels/{}/configure", name), body).await.into_response()
+}
+
+/// Remove a channel from OpenFang: DELETE /api/channels/{name}/configure
+pub async fn portal_system_channel_remove(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, &format!("/api/channels/{}/configure", name)).await.into_response()
+}
+
+/// Reload channels on OpenFang: POST /api/channels/reload
+pub async fn portal_system_channels_reload(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/channels/reload", serde_json::json!({})).await.into_response()
+}
+
+/// Install a skill on OpenFang: POST /api/skills/install
+pub async fn portal_system_skill_install(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/skills/install", body).await.into_response()
+}
+
+/// Uninstall a skill on OpenFang: POST /api/skills/uninstall
+pub async fn portal_system_skill_uninstall(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/skills/uninstall", body).await.into_response()
+}
+
+/// Activate a hand on OpenFang: POST /api/hands/{id}/activate
+pub async fn portal_system_hand_activate(State(state): State<Arc<PortalState>>, Path(hand_id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, &format!("/api/hands/{}/activate", hand_id), body).await.into_response()
+}
+
+/// Get hand details: GET /api/hands/{id}
+pub async fn portal_system_hand_detail(State(state): State<Arc<PortalState>>, Path(hand_id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, &format!("/api/hands/{}", hand_id)).await.into_response()
+}
+
+/// Set provider API key: POST /api/providers/{name}/key
+pub async fn portal_system_provider_key(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, &format!("/api/providers/{}/key", name), body).await.into_response()
+}
+
+/// Test provider: POST /api/providers/{name}/test
+pub async fn portal_system_provider_test(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, &format!("/api/providers/{}/test", name), serde_json::json!({})).await.into_response()
+}

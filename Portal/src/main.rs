@@ -87,6 +87,15 @@ async fn main() {
         .route("/api/portal/system/models", axum::routing::get(handlers::portal_system_models))
         .route("/api/portal/system/skills", axum::routing::get(handlers::portal_system_skills))
         .route("/api/portal/system/hands", axum::routing::get(handlers::portal_system_hands))
+        // Write proxies → push config to OpenFang
+        .route("/api/portal/system/channels/{name}/configure", axum::routing::post(handlers::portal_system_channel_configure).delete(handlers::portal_system_channel_remove))
+        .route("/api/portal/system/channels/reload", axum::routing::post(handlers::portal_system_channels_reload))
+        .route("/api/portal/system/skills/install", axum::routing::post(handlers::portal_system_skill_install))
+        .route("/api/portal/system/skills/uninstall", axum::routing::post(handlers::portal_system_skill_uninstall))
+        .route("/api/portal/system/hands/{hand_id}/activate", axum::routing::post(handlers::portal_system_hand_activate))
+        .route("/api/portal/system/hands/{hand_id}", axum::routing::get(handlers::portal_system_hand_detail))
+        .route("/api/portal/system/providers/{name}/key", axum::routing::post(handlers::portal_system_provider_key))
+        .route("/api/portal/system/providers/{name}/test", axum::routing::post(handlers::portal_system_provider_test))
         .with_state(state);
 
     // Add CORS
