@@ -966,28 +966,6 @@ pub async fn portal_delete_workflow(State(state): State<Arc<PortalState>>, Path(
     proxy_delete(&state, &format!("/api/workflows/{}", id)).await.into_response()
 }
 
-// ─── Scheduler / Cron Jobs (proxy to OpenFang) ───────────────────────────────
-
-pub async fn portal_list_cron_jobs(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
-    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/triggers").await.into_response()
-}
-
-pub async fn portal_create_cron_job(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
-    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/triggers", body).await.into_response()
-}
-
-pub async fn portal_toggle_cron_job(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
-    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_put(&state, &format!("/api/triggers/{}", id), body).await.into_response()
-}
-
-pub async fn portal_delete_cron_job(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
-    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_delete(&state, &format!("/api/triggers/{}", id)).await.into_response()
-}
-
 /// Diagnostic: test OpenFang API connectivity
 pub async fn portal_system_test(State(state): State<Arc<PortalState>>) -> impl IntoResponse {
     let url = format!("{}/api/providers", state.openfang_api_url);
