@@ -1,33 +1,52 @@
-//! BizClaw Portal — fully independent tenant management portal.
+//! BizClaw Portal — standalone HTTP server for tenant management.
 //!
-//! This crate is completely separated from OpenFang core.
-//! It has its own database (PORTAL_DATABASE_URL), its own data models,
-//! and communicates with OpenFang only via HTTP API proxies.
+//! This is a completely independent service from OpenFang.
+//! It communicates with OpenFang only via HTTP API proxies.
 //!
-//! # Usage
-//! ```ignore
-//! let portal_state = bizclaw_portal::db::PortalState::new();
-//! let portal_router = bizclaw_portal::portal_routes(portal_state);
-//! let app = axum::Router::new().merge(portal_router);
-//! ```
+//! # Environment Variables
+//! - `PORTAL_LISTEN` — bind address (default: `0.0.0.0:4201`)
+//! - `PORTAL_DATABASE_URL` — PostgreSQL connection string (optional, falls back to JSON file)
+//! - `OPENFANG_API_URL` — OpenFang API base URL (default: `http://openfang:4200`)
+//! - `PORTAL_ADMIN_KEY` — admin password for super-admin login
+//! - `OPENFANG_API_KEY` — fallback admin key
 
-pub mod models;
-pub mod db;
-pub mod handlers;
-pub mod html;
+mod models;
+mod db;
+mod handlers;
+mod html;
 
 use std::sync::Arc;
+use tracing::info;
 
-/// Build the complete Portal router with all routes.
-/// This returns an axum::Router that can be `.merge()`-ed into the main server.
-pub fn portal_routes(state: db::PortalState) -> axum::Router {
-    let state = Arc::new(state);
+#[tokio::main]
+async fn main() {
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,portal=debug".parse().unwrap()),
+        )
+        .init();
 
-    // Initialize data with default plans
+    let listen = std::env::var("PORTAL_LISTEN").unwrap_or_else(|_| "0.0.0.0:4201".into());
+
+    info!("🚀 BizClaw Portal starting...");
+    info!("   Listen: {listen}");
+
+    // Create portal state
+    let state = Arc::new(db::PortalState::new());
+
+    // Initialize default data (seed plans if empty)
     db::init_data(&state);
 
-    axum::Router::new()
+    let openfang_url = state.openfang_api_url.clone();
+    info!("   OpenFang API: {openfang_url}");
+    info!("   Database: {}", if state.pool.is_some() { "PostgreSQL" } else { "JSON file" });
+
+    // Build router
+    let app = axum::Router::new()
         // Portal HTML pages
+        .route("/", axum::routing::get(handlers::portal_page))
         .route("/portal/", axum::routing::get(handlers::portal_page))
         .route("/portal/{id}", axum::routing::get(handlers::portal_page_with_id))
         // Auth
@@ -63,11 +82,21 @@ pub fn portal_routes(state: db::PortalState) -> axum::Router {
         // Plans CRUD (admin)
         .route("/api/portal/plans", axum::routing::get(handlers::portal_list_plans).post(handlers::portal_create_plan))
         .route("/api/portal/plans/{id}", axum::routing::put(handlers::portal_update_plan).delete(handlers::portal_delete_plan))
-        // System API proxies
+        // System API proxies (calls OpenFang via HTTP)
         .route("/api/portal/system/channels", axum::routing::get(handlers::portal_system_channels))
         .route("/api/portal/system/providers", axum::routing::get(handlers::portal_system_providers))
         .route("/api/portal/system/models", axum::routing::get(handlers::portal_system_models))
         .route("/api/portal/system/skills", axum::routing::get(handlers::portal_system_skills))
         .route("/api/portal/system/hands", axum::routing::get(handlers::portal_system_hands))
-        .with_state(state)
+        .with_state(state);
+
+    // Add CORS
+    let app = app.layer(
+        tower_http::cors::CorsLayer::permissive()
+    );
+
+    info!("✅ Portal ready at http://{listen}");
+
+    let listener = tokio::net::TcpListener::bind(&listen).await.expect("Failed to bind");
+    axum::serve(listener, app).await.expect("Server error");
 }

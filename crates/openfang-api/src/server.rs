@@ -802,12 +802,6 @@ pub async fn build_router(
             "/api/access/chat",
             axum::routing::post(crate::tenants::tenant_access_chat),
         )
-        // Tenant self-service portal (independent crate)
-        .merge(bizclaw_portal::portal_routes(bizclaw_portal::db::PortalState::new()))
-        .route(
-            "/portal",
-            axum::routing::get(|| async { axum::response::Redirect::permanent("/portal/") }),
-        )
         // OpenAI-compatible API
         .route(
             "/v1/chat/completions",

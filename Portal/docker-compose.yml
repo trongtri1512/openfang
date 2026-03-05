@@ -1,0 +1,51 @@
+# BizClaw Portal — Standalone Docker Compose
+# Run: docker compose up --build
+# Access: http://localhost:4201/portal/
+
+version: "3.8"
+services:
+  portal-db:
+    image: postgres:16-alpine
+    volumes:
+      - portal-pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${PORTAL_DB_USER:-portal}
+      - POSTGRES_PASSWORD=${PORTAL_DB_PASSWORD:-portal}
+      - POSTGRES_DB=${PORTAL_DB_NAME:-portal}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U portal -d portal" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  portal:
+    build: .
+    ports:
+      - "4201:4201"
+    volumes:
+      - portal-data:/data
+    environment:
+      - PORTAL_LISTEN=0.0.0.0:4201
+      - PORTAL_DATABASE_URL=${PORTAL_DATABASE_URL:-postgres://portal:portal@portal-db:5432/portal}
+      - OPENFANG_API_URL=${OPENFANG_API_URL:-http://openfang:4200}
+      - PORTAL_ADMIN_KEY=${PORTAL_ADMIN_KEY:-}
+      - OPENFANG_API_KEY=${OPENFANG_API_KEY:-}
+      - RUST_LOG=${RUST_LOG:-info}
+    depends_on:
+      portal-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  portal-pgdata:
+  portal-data:
+
+    # To connect portal to the same Docker network as OpenFang:
+    # 1. Create external network: docker network create bizclaw
+    # 2. Add to both compose files:
+    #    networks:
+    #      default:
+    #        external: true
+    #        name: bizclaw

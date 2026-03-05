@@ -14,7 +14,6 @@ members = [
     "crates/openfang-desktop",
     "crates/openfang-hands",
     "crates/openfang-extensions",
-    "crates/bizclaw-portal",
     "xtask",
 ]
 
