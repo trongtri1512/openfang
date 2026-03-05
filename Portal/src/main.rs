@@ -47,8 +47,7 @@ async fn main() {
     let app = axum::Router::new()
         // Portal HTML pages
         .route("/", axum::routing::get(handlers::portal_page))
-        .route("/portal/", axum::routing::get(handlers::portal_page))
-        .route("/portal/{id}", axum::routing::get(handlers::portal_page_with_id))
+        .route("/{id}", axum::routing::get(handlers::portal_page_with_id))
         // Auth
         .route("/api/portal/login", axum::routing::post(handlers::portal_login))
         .route("/api/portal/me", axum::routing::get(handlers::portal_me))

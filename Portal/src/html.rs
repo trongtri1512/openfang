@@ -266,7 +266,7 @@ async function showDash(){document.getElementById('loginView').style.display='no
 async function loadT(){const d=await api('GET','/api/portal/tenants');T=d.tenants||[]}
 
 // Navigation
-function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el.classList.remove('active'));document.getElementById('headerActions').innerHTML='';history.pushState({page:p},'','/portal/');
+function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el.classList.remove('active'));document.getElementById('headerActions').innerHTML='';history.pushState({page:p},'','/');
 if(p==='tenants'){document.querySelector('.sbn .si:first-child').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg> Tenants';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateTenantModal()">+ Create Tenant</button>';renderList()}
 else if(p==='members'){document.getElementById('membersNav').classList.add('active');document.getElementById('pageTitle').textContent='Members';renderMembers()}
 else if(p==='users'){document.getElementById('usersNav').classList.add('active');document.getElementById('pageTitle').textContent='Users';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateUserModal()">+ Create User</button>';renderUsers()}
@@ -284,7 +284,7 @@ function filterT(){const q=(document.getElementById('si2')?.value||'').toLowerCa
 
 // Tenant Detail
 async function openDetail(id){
-  const d=await api('GET','/api/portal/tenants/'+id);if(d.error)return;D=d;CTab='overview';history.pushState({page:'detail',id:id},d.name,'/portal/'+id);renderDetailPage();
+  const d=await api('GET','/api/portal/tenants/'+id);if(d.error)return;D=d;CTab='overview';history.pushState({page:'detail',id:id},d.name,'/'+id);renderDetailPage();
 }
 function renderDetailPage(){
   if(!D)return;const t=D;const isAdmin=S.role==='admin';
@@ -648,7 +648,7 @@ async function doCreateMyTenant(){const name=document.getElementById('ctName').v
 window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});
 (function(){const s=localStorage.getItem('ps');if(s){try{S=JSON.parse(s);
   // Check if URL has tenant ID (permalink)
-  const m=location.pathname.match(/\/portal\/([a-f0-9-]+)/i);
+  const m=location.pathname.match(/\/([a-f0-9-]{36})/i);
   if(m){showDash().then(()=>openDetail(m[1]))}else{showDash()}
 }catch(e){localStorage.removeItem('ps')}}})();
 </script>
