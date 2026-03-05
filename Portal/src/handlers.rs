@@ -902,6 +902,71 @@ pub async fn portal_system_provider_test(State(state): State<Arc<PortalState>>, 
     proxy_post(&state, &format!("/api/providers/{}/test", name), serde_json::json!({})).await.into_response()
 }
 
+async fn proxy_put(state: &PortalState, path: &str, body: serde_json::Value) -> impl IntoResponse {
+    let url = format!("{}{}", state.openfang_api_url, path);
+    let client = reqwest::Client::new();
+    let mut req = client.put(&url).json(&body);
+    if !state.openfang_api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", state.openfang_api_key));
+    }
+    match req.send().await {
+        Ok(resp) => match resp.json::<serde_json::Value>().await {
+            Ok(json) => Json(json).into_response(),
+            Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Parse error: {e}")}))).into_response(),
+        },
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": format!("Proxy error: {e}")}))).into_response(),
+    }
+}
+
+// ─── Workflows (proxy to OpenFang) ───────────────────────────────────────────
+
+pub async fn portal_list_workflows(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/workflows").await.into_response()
+}
+
+pub async fn portal_create_workflow(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/workflows", body).await.into_response()
+}
+
+pub async fn portal_run_workflow(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, &format!("/api/workflows/{}/run", id), body).await.into_response()
+}
+
+pub async fn portal_workflow_runs(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, &format!("/api/workflows/{}/runs", id)).await.into_response()
+}
+
+pub async fn portal_delete_workflow(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, &format!("/api/workflows/{}", id)).await.into_response()
+}
+
+// ─── Scheduler / Cron Jobs (proxy to OpenFang) ───────────────────────────────
+
+pub async fn portal_list_cron_jobs(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/triggers").await.into_response()
+}
+
+pub async fn portal_create_cron_job(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/triggers", body).await.into_response()
+}
+
+pub async fn portal_toggle_cron_job(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_put(&state, &format!("/api/triggers/{}", id), body).await.into_response()
+}
+
+pub async fn portal_delete_cron_job(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, &format!("/api/triggers/{}", id)).await.into_response()
+}
+
 /// Diagnostic: test OpenFang API connectivity
 pub async fn portal_system_test(State(state): State<Arc<PortalState>>) -> impl IntoResponse {
     let url = format!("{}/api/providers", state.openfang_api_url);

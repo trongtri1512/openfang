@@ -70,6 +70,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .sbu{padding:12px 20px;font-size:.8rem;color:var(--d);border-bottom:1px solid var(--b)}
 .sbn{flex:1;padding:8px}
 .si{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:.85rem;font-weight:500;color:var(--d);cursor:pointer;transition:all .15s;text-decoration:none}
+.si-group{margin:0}.si-label{justify-content:space-between}.si-arrow{font-size:.7rem;transition:transform .2s;display:inline-block}.si-arrow.open{transform:rotate(180deg)}.si-sub{padding-left:18px}.si-sub .si{font-size:.82rem;padding:8px 12px}
 .si:hover{background:var(--bg2);color:var(--t)}.si.active{background:var(--ol);color:var(--o)}
 .si svg{width:18px;height:18px;flex-shrink:0}
 .sbb{padding:8px;border-top:1px solid var(--b)}
@@ -198,6 +199,13 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
       <div class="sbu" id="sbUser">Admin</div>
       <div class="sbn">
         <a class="si active" onclick="showPage('tenants')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg>Tenants</a>
+        <div class="si-group">
+          <a class="si si-label" onclick="toggleAutoMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Automation<span class="si-arrow" id="autoArrow">&#9662;</span></a>
+          <div class="si-sub" id="autoSub" style="display:none">
+            <a class="si" onclick="showPage('workflows')" id="workflowsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Workflows</a>
+            <a class="si" onclick="showPage('scheduler')" id="schedulerNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Scheduler</a>
+          </div>
+        </div>
         <a class="si" onclick="showPage('members')" id="membersNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Members</a>
         <a class="si" onclick="showPage('users')" id="usersNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Users</a>
         <a class="si" onclick="showPage('plans')" id="plansNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Plans</a>
@@ -257,6 +265,54 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
   </div>
 </div>
 
+<!-- Create Workflow Modal -->
+<div class="modal-bg" id="createWorkflowModal">
+  <div class="modal" style="max-width:640px">
+    <h3>Create Workflow</h3>
+    <div class="fg"><label>Template</label><select id="wfTemplate" onchange="fillWfTemplate()">
+      <option value="custom">Custom Workflow</option>
+      <option value="code-review">📝 Code Review Pipeline</option>
+      <option value="research-write">🔍 Research & Write Article</option>
+      <option value="brainstorm">🧠 Multi-Agent Brainstorm</option>
+      <option value="iterative">🔄 Iterative Refinement</option>
+    </select></div>
+    <div class="fg"><label>Workflow Name</label><input type="text" id="wfName" placeholder="e.g. my-code-review"></div>
+    <div class="fg"><label>Description</label><input type="text" id="wfDesc" placeholder="What this workflow does"></div>
+    <div class="fg"><label>Steps (JSON)</label><textarea id="wfSteps" rows="10" style="width:100%;font-family:monospace;font-size:.8rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder='[{"name":"step1","agent_name":"my-agent","prompt":"{{input}}","mode":"sequential"}]'></textarea></div>
+    <div class="actions"><button class="btn-cancel" onclick="closeModal('createWorkflowModal')">Cancel</button><button class="btn-o" onclick="doCreateWorkflow()">Create Workflow</button></div>
+  </div>
+</div>
+
+<!-- Run Workflow Modal -->
+<div class="modal-bg" id="runWorkflowModal">
+  <div class="modal">
+    <h3>Run Workflow</h3>
+    <div class="fg"><label>Input Text</label><textarea id="wfRunInput" rows="4" style="width:100%;font-family:monospace;font-size:.85rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder="Enter the initial input for step 1..."></textarea></div>
+    <div class="actions"><button class="btn-cancel" onclick="closeModal('runWorkflowModal')">Cancel</button><button class="btn-o" id="wfRunBtn" onclick="doRunWorkflow()">Run</button></div>
+    <div id="wfRunResult" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Create Scheduler Job Modal -->
+<div class="modal-bg" id="createSchedulerModal">
+  <div class="modal" style="max-width:560px">
+    <h3>Create Trigger</h3>
+    <div class="fg"><label>Agent ID</label><input type="text" id="sjAgentId" placeholder="Agent UUID"></div>
+    <div class="fg"><label>Event Pattern</label><select id="sjPattern">
+      <option value="all">All Events</option>
+      <option value="lifecycle">Lifecycle Events</option>
+      <option value="agent_terminated">Agent Terminated</option>
+      <option value="system">System Events</option>
+      <option value="memory_update">Memory Updates</option>
+      <option value="content_match">Content Match (substring)</option>
+    </select></div>
+    <div class="fg" id="sjSubstringRow" style="display:none"><label>Match Substring</label><input type="text" id="sjSubstring" placeholder="e.g. error"></div>
+    <div class="fg"><label>Prompt Template</label><textarea id="sjPrompt" rows="3" style="width:100%;font-family:monospace;font-size:.85rem;background:var(--bg2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:10px;resize:vertical" placeholder="Event detected: {{event}}">Event: {{event}}</textarea></div>
+    <div class="fg"><label>Max Fires (0 = unlimited)</label><input type="number" id="sjMaxFires" value="0" min="0"></div>
+    <div class="actions"><button class="btn-cancel" onclick="closeModal('createSchedulerModal')">Cancel</button><button class="btn-o" onclick="doCreateSchedulerJob()">Create Trigger</button></div>
+  </div>
+</div>
+
 <!-- Create Tenant Modal -->
 <div class="modal-bg" id="createTenantModal">
   <div class="modal">
@@ -286,7 +342,9 @@ function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el
 if(p==='tenants'){document.querySelector('.sbn .si:first-child').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg> Tenants';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateTenantModal()">+ Create Tenant</button>';renderList()}
 else if(p==='members'){document.getElementById('membersNav').classList.add('active');document.getElementById('pageTitle').textContent='Members';renderMembers()}
 else if(p==='users'){document.getElementById('usersNav').classList.add('active');document.getElementById('pageTitle').textContent='Users';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateUserModal()">+ Create User</button>';renderUsers()}
-else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}}
+else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}
+else if(p==='workflows'){document.getElementById('workflowsNav').classList.add('active');openAutoMenu();document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Workflows';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createWorkflowModal\")">+ Create Workflow</button>';renderWorkflows()}
+else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');openAutoMenu();document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Trigger</button>';renderScheduler()}}
 
 // Tenant List
 function renderList(){
@@ -756,6 +814,51 @@ async function deletePlan(id){if(!confirm('Delete plan "'+id+'"?'))return;const 
 // Create Tenant (self-service)
 function openCreateTenantModal(){openModal('createTenantModal')}
 async function doCreateMyTenant(){const name=document.getElementById('ctName').value.trim();if(!name){alert('Tenant name is required');return}const body={name,provider:document.getElementById('ctProvider').value,model:document.getElementById('ctModel').value};const d=await api('POST','/api/portal/my/tenants',body);if(d.ok){closeModal('createTenantModal');document.getElementById('ctName').value='';await loadT();showPage('tenants')}else{alert(d.error||'Failed')}}
+
+// ─── Automation: Sidebar Toggle ──────────────────────────────────────────────
+function toggleAutoMenu(){const sub=document.getElementById('autoSub');const arrow=document.getElementById('autoArrow');if(sub.style.display==='none'){sub.style.display='';arrow.classList.add('open')}else{sub.style.display='none';arrow.classList.remove('open')}}
+function openAutoMenu(){const sub=document.getElementById('autoSub');const arrow=document.getElementById('autoArrow');sub.style.display='';arrow.classList.add('open')}
+
+// ─── Automation: Workflows ───────────────────────────────────────────────────
+const WF_TEMPLATES={'code-review':{name:'code-review-pipeline',desc:'Analyze code, review for issues, and produce a summary report',steps:[{name:'analyze',agent_name:'code-reviewer',prompt:'Analyze the following code for bugs, style issues, and security vulnerabilities:\n\n{{input}}',mode:'sequential',timeout_secs:180,error_mode:'fail',output_var:'analysis'},{name:'security-check',agent_name:'security-auditor',prompt:'Review this code analysis for security issues. Flag anything critical:\n\n{{analysis}}',mode:'sequential',timeout_secs:120,error_mode:'retry',max_retries:2,output_var:'security_review'},{name:'summary',agent_name:'writer',prompt:'Write a concise code review summary.\n\nCode Analysis:\n{{analysis}}\n\nSecurity Review:\n{{security_review}}',mode:'sequential',timeout_secs:60,error_mode:'fail'}]},'research-write':{name:'research-and-write',desc:'Research a topic, outline, write, and optionally fact-check',steps:[{name:'research',agent_name:'researcher',prompt:'Research the following topic thoroughly:\n\n{{input}}',mode:'sequential',timeout_secs:300,output_var:'research'},{name:'outline',agent_name:'planner',prompt:'Create a detailed article outline based on this research:\n\n{{research}}',mode:'sequential',timeout_secs:60,output_var:'outline'},{name:'write',agent_name:'writer',prompt:'Write a complete article.\n\nOutline:\n{{outline}}\n\nResearch:\n{{research}}',mode:'sequential',timeout_secs:300,output_var:'article'},{name:'fact-check',agent_name:'analyst',prompt:'Fact-check this article:\n\n{{article}}',mode:'conditional',condition:'claim',timeout_secs:120,error_mode:'skip'}]},'brainstorm':{name:'brainstorm',desc:'Parallel brainstorm with 3 agents, then synthesize',steps:[{name:'creative-ideas',agent_name:'writer',prompt:'Brainstorm 5 creative ideas for: {{input}}',mode:'fan_out',timeout_secs:60},{name:'technical-ideas',agent_name:'architect',prompt:'Brainstorm 5 technically feasible ideas for: {{input}}',mode:'fan_out',timeout_secs:60},{name:'business-ideas',agent_name:'analyst',prompt:'Brainstorm 5 ideas with strong business potential for: {{input}}',mode:'fan_out',timeout_secs:60},{name:'gather',agent_name:'planner',prompt:'unused',mode:'collect'},{name:'synthesize',agent_name:'orchestrator',prompt:'Synthesize brainstorm results into the top 5 actionable ideas:\n\n{{input}}',mode:'sequential',timeout_secs:120}]},'iterative':{name:'iterative-refinement',desc:'Refine a document until approved or max iterations reached',steps:[{name:'first-draft',agent_name:'writer',prompt:'Write a first draft about: {{input}}',mode:'sequential',timeout_secs:120,output_var:'draft'},{name:'review-and-refine',agent_name:'code-reviewer',prompt:'Review this draft. If it meets quality standards, respond with APPROVED. Otherwise, provide feedback and a revised version:\n\n{{input}}',mode:'loop',max_iterations:4,until:'APPROVED',timeout_secs:180,error_mode:'retry',max_retries:1}]}};
+
+function fillWfTemplate(){const tpl=document.getElementById('wfTemplate').value;if(tpl==='custom'){document.getElementById('wfName').value='';document.getElementById('wfDesc').value='';document.getElementById('wfSteps').value='';return}const t=WF_TEMPLATES[tpl];if(!t)return;document.getElementById('wfName').value=t.name;document.getElementById('wfDesc').value=t.desc;document.getElementById('wfSteps').value=JSON.stringify(t.steps,null,2)}
+
+async function renderWorkflows(){
+  const d=await api('GET','/api/portal/workflows');
+  const wfs=Array.isArray(d)?d:(d.workflows||d.error?[]:[]);
+  if(d.error){document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3>Workflows</h3><div class="sbox-desc">Could not load workflows from OpenFang API.</div><div style="margin-top:8px;padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">${d.error}</div></div>`;return}
+  if(wfs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><h3 style="color:var(--d);font-weight:500">No workflows yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Create a workflow to chain multiple agents together in a pipeline.</p><button class="btn-o" style="margin-top:16px" onclick="openModal('createWorkflowModal')">+ Create Workflow</button></div>`;return}
+  const rows=wfs.map(w=>`<tr><td style="font-weight:500">${w.name||'-'}</td><td style="color:var(--d)">${w.description||'-'}</td><td><span class="badge plan">${w.steps||0} steps</span></td><td style="color:var(--d);font-size:.8rem">${fmtDate(w.created_at)}</td><td><button class="btn-g" onclick="openRunWorkflow('${w.id}')">Run</button> <button class="btn-g" onclick="viewWorkflowRuns('${w.id}')">Runs</button> <button class="btn-r" onclick="deleteWorkflow('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">Delete</button></td></tr>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${wfs.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Description</th><th>Steps</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function doCreateWorkflow(){const name=document.getElementById('wfName').value.trim();const desc=document.getElementById('wfDesc').value.trim();const stepsRaw=document.getElementById('wfSteps').value.trim();if(!name){alert('Workflow name is required');return}let steps;try{steps=JSON.parse(stepsRaw)}catch(e){alert('Invalid JSON in steps: '+e.message);return}if(!Array.isArray(steps)){alert('Steps must be a JSON array');return}const body={name,description:desc,steps};const d=await api('POST','/api/portal/workflows',body);if(d.workflow_id||d.id){closeModal('createWorkflowModal');document.getElementById('wfName').value='';document.getElementById('wfDesc').value='';document.getElementById('wfSteps').value='';document.getElementById('wfTemplate').value='custom';renderWorkflows()}else{alert(d.error||'Failed to create workflow')}}
+
+let runWfId=null;
+function openRunWorkflow(id){runWfId=id;document.getElementById('wfRunInput').value='';document.getElementById('wfRunResult').innerHTML='';document.getElementById('wfRunBtn').disabled=false;openModal('runWorkflowModal')}
+async function doRunWorkflow(){if(!runWfId)return;const input=document.getElementById('wfRunInput').value;document.getElementById('wfRunBtn').disabled=true;document.getElementById('wfRunResult').innerHTML='<div style="padding:12px;background:var(--bb);border-radius:8px;color:var(--bt);font-size:.85rem">⏳ Running workflow... This may take a while.</div>';try{const d=await api('POST','/api/portal/workflows/'+runWfId+'/run',{input});if(d.error){document.getElementById('wfRunResult').innerHTML=`<div style="padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">❌ ${d.error}</div>`}else{const output=d.output||JSON.stringify(d,null,2);document.getElementById('wfRunResult').innerHTML=`<div style="padding:12px;background:var(--gb);border-radius:8px;font-size:.85rem"><strong style="color:var(--gt)">✅ ${d.status||'completed'}</strong><pre style="margin-top:8px;white-space:pre-wrap;color:var(--t);font-size:.8rem">${output}</pre></div>`}}catch(e){document.getElementById('wfRunResult').innerHTML=`<div style="padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">❌ ${e}</div>`}finally{document.getElementById('wfRunBtn').disabled=false}}
+
+async function viewWorkflowRuns(id){const d=await api('GET','/api/portal/workflows/'+id+'/runs');const runs=Array.isArray(d)?d:(d.runs||[]);if(runs.length===0){alert('No runs found for this workflow');return}let html='<div class="sbox"><h3>Workflow Runs</h3><table class="dt"><thead><tr><th>Run ID</th><th>State</th><th>Steps</th><th>Started</th><th>Completed</th></tr></thead><tbody>';runs.forEach(r=>{html+=`<tr><td style="font-family:monospace;font-size:.75rem">${(r.id||'').substring(0,8)}...</td><td><span class="badge ${r.state==='completed'?'running':r.state==='failed'?'stopped':'plan'}">${r.state||'-'}</span></td><td>${r.steps_completed||0}</td><td style="font-size:.8rem">${fmtDate(r.started_at)}</td><td style="font-size:.8rem">${fmtDate(r.completed_at)}</td></tr>`});html+='</tbody></table></div>';document.getElementById('mainContent').innerHTML=html}
+
+async function deleteWorkflow(id,name){if(!confirm('Delete workflow "'+name+'"?'))return;const d=await api('DELETE','/api/portal/workflows/'+encodeURIComponent(id));renderWorkflows()}
+
+// ─── Automation: Scheduler / Triggers ─────────────────────────────────────────
+document.getElementById('sjPattern')?.addEventListener('change',function(){document.getElementById('sjSubstringRow').style.display=this.value==='content_match'?'':'none'});
+
+async function renderScheduler(){
+  const d=await api('GET','/api/portal/scheduler');
+  const jobs=Array.isArray(d)?d:(d.triggers||d.error?[]:[]);
+  if(d.error){document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3>Scheduler</h3><div class="sbox-desc">Could not load triggers from OpenFang API.</div><div style="margin-top:8px;padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">${d.error}</div></div>`;return}
+  if(jobs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><h3 style="color:var(--d);font-weight:500">No triggers yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Create triggers to automatically react to agent events.</p><button class="btn-o" style="margin-top:16px" onclick="openModal('createSchedulerModal')">+ Create Trigger</button></div>`;return}
+  const rows=jobs.map(j=>{const pat=typeof j.pattern==='string'?j.pattern:JSON.stringify(j.pattern);const maxF=j.max_fires===0?'∞':j.max_fires;return `<tr><td style="font-family:monospace;font-size:.75rem">${(j.id||'').substring(0,8)}...</td><td style="font-family:monospace;font-size:.75rem">${(j.agent_id||'').substring(0,8)}...</td><td><span class="badge plan">${pat}</span></td><td style="font-size:.8rem">${j.fire_count||0} / ${maxF}</td><td><span class="badge ${j.enabled?'running':'stopped'}">${j.enabled?'Enabled':'Disabled'}</span></td><td style="font-size:.8rem">${fmtDate(j.created_at)}</td><td><button class="btn-g" onclick="toggleTrigger('${j.id}',${!j.enabled})">${j.enabled?'Disable':'Enable'}</button> <button class="btn-r" onclick="deleteTrigger('${j.id}')">Delete</button></td></tr>`}).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${jobs.length}</span></span></div><table class="dt"><thead><tr><th>ID</th><th>Agent</th><th>Pattern</th><th>Fires</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function doCreateSchedulerJob(){const agentId=document.getElementById('sjAgentId').value.trim();if(!agentId){alert('Agent ID is required');return}const patVal=document.getElementById('sjPattern').value;let pattern;if(patVal==='content_match'){const sub=document.getElementById('sjSubstring').value.trim();if(!sub){alert('Match substring is required');return}pattern={content_match:{substring:sub}}}else{pattern=patVal}const body={agent_id:agentId,pattern,prompt_template:document.getElementById('sjPrompt').value,max_fires:parseInt(document.getElementById('sjMaxFires').value)||0};const d=await api('POST','/api/portal/scheduler',body);if(d.trigger_id||d.id){closeModal('createSchedulerModal');document.getElementById('sjAgentId').value='';renderScheduler()}else{alert(d.error||'Failed to create trigger')}}
+
+async function toggleTrigger(id,enabled){await api('PUT','/api/portal/scheduler/'+encodeURIComponent(id),{enabled});renderScheduler()}
+async function deleteTrigger(id){if(!confirm('Delete this trigger?'))return;await api('DELETE','/api/portal/scheduler/'+encodeURIComponent(id));renderScheduler()}
 
 // Init + Permalink
 window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});
