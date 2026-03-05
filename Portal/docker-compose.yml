@@ -1,6 +1,6 @@
-# BizClaw Portal — Production Deployment
-# Domain: portal.openfang.com.vn (auto-SSL via Caddy)
+# BizClaw Portal — Standalone Docker Compose
 # Run: docker compose up --build -d
+# Access: http://localhost:4201/ or via reverse proxy at portal.openfangcom.vn
 
 version: "3.8"
 services:
@@ -22,6 +22,8 @@ services:
 
   portal:
     build: .
+    ports:
+      - "4201:4201"
     volumes:
       - portal-data:/data
     environment:
@@ -36,33 +38,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  caddy:
-    image: caddy:2-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - portal
-    restart: unless-stopped
-
 volumes:
   portal-pgdata:
   portal-data:
-  caddy-data:
-  caddy-config:
-
-    # Connect to OpenFang on the same network:
-    # Option 1: Use external network
-    #   docker network create bizclaw
-    #   Then uncomment below:
-    # networks:
-    #   default:
-    #     external: true
-    #     name: bizclaw
-    #
-    # Option 2: Use host networking for OPENFANG_API_URL
-    #   OPENFANG_API_URL=http://host.docker.internal:4200
