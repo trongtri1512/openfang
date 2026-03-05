@@ -614,16 +614,32 @@ async function renderHistory(t){
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:1rem;font-weight:700">Conversation History</h3></div>`;
   try{
     const d=await api('GET','/api/portal/tenants/'+t.id+'/conversations');
-    const convos=d.conversations||[];
-    if(convos.length===0){
-      html+=`<div class="empty"><div class="empty-icon">&#128172;</div><h4>No conversations yet</h4><p>Conversations will appear here once your Agent starts chatting with users.</p></div>`;
+    if(d.error&&(!d.messages||d.messages.length===0)){
+      html+=`<div class="empty"><div class="empty-icon">&#128172;</div><h4>${d.error||'No conversations yet'}</h4><p>Deploy your agent first, then conversations will appear here.</p></div>`;
     }else{
-      html+=`<div class="sr"><span class="sl">Total: <span class="sv">${convos.length}</span></span></div>`;
-      const rows=convos.map(c=>{
-        const last=c.last_message?c.last_message.content||'':'No messages';
-        return `<tr><td style="font-weight:500">${c.title||c.id||'-'}</td><td>${c.channel||'-'}</td><td>${c.message_count||0}</td><td style="color:var(--d);font-size:.8rem">${fmtDate(c.created_at)}</td><td style="font-size:.8rem;color:var(--d);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${last}</td></tr>`;
-      }).join('');
-      html+=`<table class="dt"><thead><tr><th>Title</th><th>Channel</th><th>Messages</th><th>Date</th><th>Last Message</th></tr></thead><tbody>${rows}</tbody></table>`;
+      const msgs=d.messages||[];
+      if(msgs.length===0){
+        html+=`<div class="empty"><div class="empty-icon">&#128172;</div><h4>No messages yet</h4><p>Start chatting with your agent in the Assistant tab or via a connected channel.</p></div>`;
+      }else{
+        html+=`<div class="sr"><span class="sl">Messages: <span class="sv">${msgs.length}</span></span><span class="sl">Session: <span class="sv" style="font-size:.7rem">${d.session_id||'-'}</span></span></div>`;
+        html+=`<div style="max-height:500px;overflow-y:auto;border:1px solid var(--b);border-radius:10px;padding:12px;background:var(--bg)">`;
+        msgs.forEach(m=>{
+          const isUser=m.role==='User';
+          const roleColor=isUser?'var(--o)':'#27ae60';
+          const roleName=isUser?'You':'Agent';
+          const content=(m.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          html+=`<div style="margin-bottom:12px;display:flex;gap:8px;flex-direction:${isUser?'row-reverse':'row'}">
+            <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:${roleColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700">${isUser?'U':'A'}</div>
+            <div style="max-width:80%;padding:8px 12px;border-radius:12px;background:${isUser?'var(--ol)':'var(--bg2)'};font-size:.83rem;line-height:1.5;white-space:pre-wrap;word-break:break-word">${content}</div>
+          </div>`;
+          if(m.tools&&m.tools.length>0){
+            m.tools.forEach(tool=>{
+              html+=`<div style="margin:0 0 8px 36px;padding:6px 10px;background:var(--bg2);border-left:3px solid var(--o);border-radius:4px;font-size:.75rem"><b>🔧 ${tool.name}</b>${tool.result?' → <span style="color:var(--d)">'+tool.result.substring(0,200)+'</span>':''}</div>`;
+            });
+          }
+        });
+        html+=`</div>`;
+      }
     }
   }catch(e){
     html+=`<div class="empty"><div class="empty-icon">&#9888;</div><h4>Could not load conversations</h4><p>${e.message||'Error'}</p></div>`;

@@ -700,6 +700,49 @@ pub async fn portal_chat(State(state): State<Arc<PortalState>>, Path(id): Path<S
     }
 }
 
+// ─── Conversations (proxy to OpenFang agent session) ─────────────────────────
+pub async fn portal_conversations(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let _session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data = load_data(&state);
+    let tenant = match data.tenants.iter().find(|t| t.id == id) { Some(t) => t, None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response() };
+    let agent_name = tenant.agent_name.clone().unwrap_or_else(|| format!("portal-{}", tenant.slug));
+
+    let client = reqwest::Client::new();
+    let auth = if !state.openfang_api_key.is_empty() { Some(format!("Bearer {}", state.openfang_api_key)) } else { None };
+
+    // Find agent ID by name
+    let list_url = format!("{}/api/agents", state.openfang_api_url);
+    let mut list_req = client.get(&list_url);
+    if let Some(ref a) = auth { list_req = list_req.header("Authorization", a.clone()); }
+    let agent_id = match list_req.send().await {
+        Ok(resp) => {
+            let agents: Vec<serde_json::Value> = resp.json().await.unwrap_or_default();
+            agents.iter().find(|a| a.get("name").and_then(|n| n.as_str()) == Some(&agent_name))
+                .and_then(|a| a.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
+        }
+        Err(_) => None,
+    };
+    let agent_id = match agent_id {
+        Some(id) => id,
+        None => return Json(serde_json::json!({"conversations":[],"error":"Agent not deployed yet"})).into_response(),
+    };
+
+    // Get agent session
+    let sess_url = format!("{}/api/agents/{}/session", state.openfang_api_url, agent_id);
+    let mut sess_req = client.get(&sess_url);
+    if let Some(ref a) = auth { sess_req = sess_req.header("Authorization", a.clone()); }
+
+    match sess_req.send().await {
+        Ok(resp) => {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            Json(body).into_response()
+        }
+        Err(e) => {
+            Json(serde_json::json!({"conversations":[],"error":format!("Failed: {e}")})).into_response()
+        }
+    }
+}
+
 // ─── Clone Tenant ────────────────────────────────────────────────────────────
 pub async fn portal_clone_tenant(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
