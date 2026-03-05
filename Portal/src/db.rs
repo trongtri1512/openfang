@@ -4,7 +4,7 @@
 
 use crate::models::{PortalData, seed_defaults};
 use std::path::PathBuf;
-use std::sync::Arc;
+
 
 /// Portal application state — independent from OpenFang's AppState.
 #[derive(Clone)]

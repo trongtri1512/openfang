@@ -41,7 +41,7 @@ async fn main() {
 
     let openfang_url = state.openfang_api_url.clone();
     info!("   OpenFang API: {openfang_url}");
-    info!("   Database: {}", if state.pool.is_some() { "PostgreSQL" } else { "JSON file" });
+    info!("   Database: {}", if state.db_pool.is_some() { "PostgreSQL" } else { "JSON file" });
 
     // Build router
     let app = axum::Router::new()
