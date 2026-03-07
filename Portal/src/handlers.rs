@@ -1497,7 +1497,13 @@ fn seed_tools(data: &mut crate::models::PortalData) -> bool {
 
 /// Seed default skills if empty.
 fn seed_skills(data: &mut crate::models::PortalData) -> bool {
-    if !data.skills.is_empty() { return false; }
+    // Force re-seed if skills are from old ClawHub era (detect by old category IDs)
+    let old_cats = ["ai-llms", "coding-ides", "git-github", "web-frontend", "devops-cloud", "browser-automation", "search-research", "data-analytics", "productivity", "communication", "notes-pkm", "security", "cli-utilities", "marketing-sales", "smart-home"];
+    let needs_reseed = data.skills.is_empty() || data.skills.iter().any(|s| old_cats.contains(&s.category.as_str()));
+    if !needs_reseed { return false; }
+    // Preserve installed state for skills that still exist
+    let installed_ids: std::collections::HashSet<String> = data.skills.iter().filter(|s| s.installed).map(|s| s.id.clone()).collect();
+    data.skills.clear();
     let defaults = vec![
         // ─── Bất động sản ───
         ("bds-tu-van", "Tư vấn BĐS", "🏠", "bat-dong-san", "Tư vấn mua bán, cho thuê bất động sản, phân tích giá thị trường"),
@@ -1568,7 +1574,8 @@ fn seed_skills(data: &mut crate::models::PortalData) -> bool {
         ("tool-crm", "Mini CRM", "👥", "cong-cu", "Quản lý khách hàng, lịch sử tương tác, pipeline bán hàng"),
     ];
     for (id, name, icon, cat, desc) in defaults {
-        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: "1.0".to_string(), installed: false, builtin: true });
+        let was_installed = installed_ids.contains(id);
+        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: "1.0".to_string(), installed: was_installed, builtin: true });
     }
     true
 }
