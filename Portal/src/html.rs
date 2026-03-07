@@ -54,7 +54,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .fg{margin-bottom:16px}
 .fg label{display:block;font-size:.8rem;font-weight:500;color:var(--d);margin-bottom:6px}
 .iw{position:relative}
-.iw input{width:100%;padding:12px 16px 12px 44px;border:1px solid var(--b);border-radius:12px;font-size:.9rem;font-family:inherit;color:var(--t);outline:none;transition:border-color .2s,box-shadow .2s;background:var(--input-bg)}
+.iw input,.iw input[type=email],.iw input[type=password],.iw input[type=text]{width:100%;padding:12px 16px 12px 44px;border:1px solid var(--b);border-radius:12px;font-size:.9rem;font-family:inherit;color:var(--t);outline:none;transition:border-color .2s,box-shadow .2s;background:var(--input-bg)}
 .iw input:focus{border-color:var(--o);box-shadow:0 0 0 3px rgba(255,92,0,.1)}
 .iw input::placeholder{color:var(--m)}
 .iw .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--m);z-index:1}
