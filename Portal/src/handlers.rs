@@ -1854,6 +1854,60 @@ pub async fn portal_scheduler_delete(State(state): State<Arc<PortalState>>, head
     Json(serde_json::json!({"ok": true})).into_response()
 }
 
+// ─── KOL / KOC CRM ──────────────────────────────────────────────────────────
+
+pub async fn portal_kol_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let data = load_data(&state);
+    Json(serde_json::json!({"contacts": data.kol_contacts})).into_response()
+}
+
+pub async fn portal_kol_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    let id = uuid::Uuid::new_v4().to_string();
+    let contact = KolContact {
+        id: id.clone(),
+        name: body["name"].as_str().unwrap_or("").to_string(),
+        platform: body["platform"].as_str().unwrap_or("Zalo").to_string(),
+        phone: body["phone"].as_str().unwrap_or("").to_string(),
+        category: body["category"].as_str().unwrap_or("").to_string(),
+        price_range: body["price_range"].as_str().unwrap_or("").to_string(),
+        status: body["status"].as_str().unwrap_or("new").to_string(),
+        notes: body["notes"].as_str().unwrap_or("").to_string(),
+        created_at: now_iso(),
+    };
+    data.kol_contacts.push(contact);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok": true, "id": id})).into_response()
+}
+
+pub async fn portal_kol_update(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, axum::extract::Path(id): axum::extract::Path<String>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    if let Some(c) = data.kol_contacts.iter_mut().find(|c| c.id == id) {
+        if let Some(v) = body["name"].as_str() { c.name = v.to_string(); }
+        if let Some(v) = body["platform"].as_str() { c.platform = v.to_string(); }
+        if let Some(v) = body["phone"].as_str() { c.phone = v.to_string(); }
+        if let Some(v) = body["category"].as_str() { c.category = v.to_string(); }
+        if let Some(v) = body["price_range"].as_str() { c.price_range = v.to_string(); }
+        if let Some(v) = body["status"].as_str() { c.status = v.to_string(); }
+        if let Some(v) = body["notes"].as_str() { c.notes = v.to_string(); }
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok": true})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Not found"}))).into_response()
+    }
+}
+
+pub async fn portal_kol_delete(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, axum::extract::Path(id): axum::extract::Path<String>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    data.kol_contacts.retain(|c| c.id != id);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
 // ─── Org Map (computed from tenants + agents) ────────────────────────────────
 
 pub async fn portal_orgmap(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {

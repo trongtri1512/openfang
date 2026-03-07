@@ -148,6 +148,9 @@ async fn main() {
         // Independent Scheduler Engine
         .route("/api/portal/scheduler", axum::routing::get(handlers::portal_scheduler_list).post(handlers::portal_scheduler_create))
         .route("/api/portal/scheduler/{id}", axum::routing::put(handlers::portal_scheduler_update).delete(handlers::portal_scheduler_delete))
+        // KOL / KOC CRM
+        .route("/api/portal/kol", axum::routing::get(handlers::portal_kol_list).post(handlers::portal_kol_create))
+        .route("/api/portal/kol/{id}", axum::routing::put(handlers::portal_kol_update).delete(handlers::portal_kol_delete))
         .with_state(state);
 
     // Add CORS

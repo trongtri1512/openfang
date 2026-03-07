@@ -222,6 +222,11 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
         <a class="si" onclick="showPage('apikeys')" id="apikeysNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>API Keys</a>
         <a class="si" onclick="showPage('usage')" id="usageNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Usage & Quotas</a>
         <a class="si" onclick="showPage('configfile')" id="configfileNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Tệp cấu hình</a>
+        <div class="sb-label">Marketing</div>
+        <a class="si" onclick="showPage('ads-dashboard')" id="adsDashboardNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Ads Dashboard</a>
+        <a class="si" onclick="showPage('kol-crm')" id="kolCrmNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>KOL / KOC</a>
+        <div class="sb-label">Hướng dẫn</div>
+        <a class="si" onclick="showPage('wiki')" id="wikiNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Wiki</a>
         <div class="sb-label" id="managementLabel" style="display:none">Management</div>
         <a class="si" onclick="showPage('members')" id="membersNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Members</a>
         <a class="si" onclick="showPage('users')" id="usersNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Users</a>
@@ -398,6 +403,9 @@ else if(p==='activity'){document.getElementById('activityNav').classList.add('ac
 else if(p==='apikeys'){document.getElementById('apikeysNav').classList.add('active');document.getElementById('pageTitle').textContent='🔑 API Keys';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="createApiKey()">+ Tạo Key</button>';renderApiKeys()}
 else if(p==='usage'){document.getElementById('usageNav').classList.add('active');document.getElementById('pageTitle').textContent='📊 Usage & Quotas';renderUsage()}
 else if(p==='configfile'){document.getElementById('configfileNav').classList.add('active');document.getElementById('pageTitle').textContent='📄 Tệp cấu hình';renderConfigFile()}
+else if(p==='ads-dashboard'){document.getElementById('adsDashboardNav').classList.add('active');document.getElementById('pageTitle').textContent='📊 Ads Dashboard';renderAdsDashboard()}
+else if(p==='kol-crm'){document.getElementById('kolCrmNav').classList.add('active');document.getElementById('pageTitle').textContent='👥 KOL / KOC';renderKolCRM()}
+else if(p==='wiki'){document.getElementById('wikiNav').classList.add('active');document.getElementById('pageTitle').textContent='📖 Wiki';renderWiki()}
 }
 
 // Tenant List
@@ -935,6 +943,183 @@ async function toggleSch(id,e){await api('PUT','/api/portal/scheduler/'+id,{enab
 async function deleteSch(id){if(!confirm('Xóa lịch?'))return;await api('DELETE','/api/portal/scheduler/'+id);renderScheduler()}
 
 
+
+// ─── Wiki / Hướng dẫn ────────────────────────────────────────────────────────
+function renderWiki(){
+  const sections=[
+    {title:'📊 Ads Dashboard',id:'wiki-ads',content:`<div style="display:grid;gap:12px">
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 1:</b> Đăng nhập <a href="https://lookerstudio.google.com" target="_blank" style="color:var(--o)">Looker Studio</a> (miễn phí)</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 2:</b> Thêm nguồn dữ liệu:<br>• <b>Google Ads</b> → Connector gốc (miễn phí)<br>• <b>Facebook Ads</b> → Supermetrics hoặc Adveronix<br>• <b>TikTok Ads</b> → Coupler.io, Catchr, hoặc Porter Metrics</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 3:</b> Tạo dashboard với các KPI: CPC, CTR, Chi phí, Lượt tiếp cận, Tương tác</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 4:</b> Vào <b>Ads Dashboard</b> trong Portal → Dán embed link → Dashboard auto hiển thị</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 5:</b> Tạo <b>Scheduler</b> để agent tự thu thập data hàng ngày + email cảnh báo chiến dịch kém</div>
+    </div>`},
+    {title:'👥 KOL / KOC CRM',id:'wiki-kol',content:`<div style="display:grid;gap:12px">
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 1:</b> Vào menu <b>KOL / KOC</b> → Thêm KOL mới (tên, SĐT, nền tảng, báo giá)</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 2:</b> Theo dõi trạng thái: Mới → Đã liên hệ → Đã báo giá → Đang hợp tác / Từ chối</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 3:</b> Tạo <b>Workflow</b> gửi tin qua Zalo OA:<br>Step 1: Đọc danh sách KOL từ CRM<br>Step 2: AI soạn tin cá nhân hoá<br>Step 3: Gửi qua Zalo OA API</div>
+      <div style="padding:12px;border-left:3px solid var(--r);border-radius:4px;background:var(--rb);color:var(--rt);font-size:.85rem">⚠️ <b>Lưu ý bảo mật:</b> Không dùng Zalo cá nhân để gửi hàng loạt (vi phạm chính sách Zalo + Luật An ninh mạng 2026). Chỉ sử dụng <b>Zalo OA</b> của công ty.</div>
+    </div>`},
+    {title:'⚙️ Workflows',id:'wiki-wf',content:`<div style="display:grid;gap:12px">
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Workflow</b> = chuỗi tác vụ tự động gồm nhiều bước (steps).</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Loại step:</b><br>🤖 <b>Agent Prompt</b> – AI xử lý theo prompt<br>🌐 <b>HTTP Request</b> – Gọi API bên ngoài<br>📧 <b>Email</b> – Gửi/đọc email IMAP/SMTP<br>⏱️ <b>Delay</b> – Chờ N giây/phút<br>🔀 <b>Điều kiện</b> – Rẽ nhánh theo kết quả</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Ví dụ:</b> Workflow "Email hàng ngày"<br>Step 1: Agent đọc email mới (IMAP)<br>Step 2: AI tóm tắt nội dung<br>Step 3: Gửi email tổng hợp cho manager</div>
+    </div>`},
+    {title:'⏰ Scheduler',id:'wiki-sch',content:`<div style="display:grid;gap:12px">
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Scheduler</b> = lịch tự động chạy workflow theo cron expression.</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Cron phổ biến:</b><br><code style="background:var(--bg3);padding:2px 6px;border-radius:4px">0 8 * * *</code> = 8h sáng mỗi ngày<br><code style="background:var(--bg3);padding:2px 6px;border-radius:4px">0 */2 * * *</code> = mỗi 2 giờ<br><code style="background:var(--bg3);padding:2px 6px;border-radius:4px">0 9 * * 1</code> = 9h thứ Hai hàng tuần<br><code style="background:var(--bg3);padding:2px 6px;border-radius:4px">0 0 1 * *</code> = 0h ngày 1 mỗi tháng</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Cách dùng:</b><br>1. Tạo Workflow trước<br>2. Tạo Scheduler → chọn cron + liên kết workflow<br>3. Bật Active → hệ thống tự chạy</div>
+    </div>`},
+    {title:'🎯 Skills Market',id:'wiki-skills',content:`<div style="display:grid;gap:12px">
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Skills</b> = khả năng chuyên môn giúp AI Agent thông minh hơn theo từng ngành nghề VN.</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>12 ngành:</b> Bất động sản, Giáo dục, Y tế, Thương mại, Tài chính, Du lịch, F&B, Logistics, Pháp lý, Truyền thông, CNTT, Công cụ</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Combo gợi ý:</b><br>🏠 Sàn BĐS: Tư vấn BĐS + Pháp lý + Mini CRM<br>🛒 Shop online: Shopee + CSKH + Kho + Tracking<br>🏥 Phòng khám: Tư vấn SK + Đặt lịch + Thuốc<br>📢 Agency: Content + SEO + Ads + Social</div>
+    </div>`},
+    {title:'🏢 Tenants & Agents',id:'wiki-tenants',content:`<div style="display:grid;gap:12px">
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Tenant</b> = một tổ chức/dự án riêng biệt, có cấu hình AI độc lập.</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Agent</b> = một AI bot chạy trên tenant, có skills + hands riêng.</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Multi-Channel:</b> Mỗi agent kết nối nhiều kênh (Telegram, Zalo, Discord, Email, Web...)</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Cách dùng:</b><br>1. Tạo Tenant (chọn plan)<br>2. Tạo Agent trong tenant<br>3. Gán Skills cho agent<br>4. Kết nối Channel (Telegram bot token, Zalo OA...)<br>5. Agent tự hoạt động trên các kênh</div>
+    </div>`}
+  ];
+  const cards=sections.map(s=>`<div class="sbox" style="margin-bottom:12px;cursor:pointer" onclick="const c=document.getElementById('${s.id}');c.style.display=c.style.display==='none'?'block':'none'">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h3>${s.title}</h3><span style="font-size:1.2rem;color:var(--m)">▾</span></div>
+    <div id="${s.id}" style="display:none;margin-top:12px">${s.content}</div>
+  </div>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sbox" style="border-left:3px solid var(--o);margin-bottom:20px">
+    <h3 style="margin-bottom:8px">📖 Hướng dẫn sử dụng Portal</h3>
+    <p style="font-size:.85rem;color:var(--d)">Tài liệu hướng dẫn thao tác các tính năng chính. Bấm vào từng mục để xem chi tiết.</p>
+  </div>${cards}`;
+}
+
+// ─── Ads Dashboard ───────────────────────────────────────────────────────────
+let _adsTab='dashboard';
+function renderAdsDashboard(){
+  const tabs=`<div style="display:flex;gap:0;border-bottom:1px solid var(--b);margin-bottom:20px">
+    <button onclick="_adsTab='dashboard';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab==='dashboard'?'600':'500'};color:${_adsTab==='dashboard'?'var(--o)':'var(--d)'};border-bottom:${_adsTab==='dashboard'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Dashboard</button>
+    <button onclick="_adsTab='setup';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab==='setup'?'600':'500'};color:${_adsTab==='setup'?'var(--o)':'var(--d)'};border-bottom:${_adsTab==='setup'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Hướng dẫn kết nối</button>
+    <button onclick="_adsTab='kpi';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab==='kpi'?'600':'500'};color:${_adsTab==='kpi'?'var(--o)':'var(--d)'};border-bottom:${_adsTab==='kpi'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Cảnh báo KPI</button>
+  </div>`;
+
+  if(_adsTab==='setup'){
+    document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
+      <div class="sbox"><h3 style="margin-bottom:12px">🔗 Google Ads</h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Mở <a href="https://lookerstudio.google.com" target="_blank" style="color:var(--o)">Looker Studio</a> → Add Data → Google Ads</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Chọn tài khoản Google Ads → Cấp quyền → Connector tích hợp sẵn (miễn phí)</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Chọn metrics: Cost, Clicks, Impressions, CTR, CPC, Conversions</div>
+      </div></div>
+      <div class="sbox"><h3 style="margin-bottom:12px">📘 Facebook Ads</h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Cài connector: <a href="https://supermetrics.com" target="_blank" style="color:var(--o)">Supermetrics</a> hoặc <b>Adveronix</b> (free tier)</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Kết nối Facebook Business Manager → Cấp quyền đọc Ads</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Chọn breakdown: Age, Gender, Placement → Vẽ biểu đồ phân tích</div>
+      </div></div>
+      <div class="sbox"><h3 style="margin-bottom:12px">🎵 TikTok Ads</h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Cài connector: <a href="https://coupler.io" target="_blank" style="color:var(--o)">Coupler.io</a>, <b>Catchr</b>, hoặc <b>Porter Metrics</b></div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Kết nối TikTok Ads Manager → API access token</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Xuất data về Google Sheet hoặc trực tiếp Looker Studio</div>
+      </div></div>
+      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">💡 Datapot.vn</h3><p style="font-size:.85rem;color:var(--d)">Công cụ VN chuyên xuất báo cáo Facebook/TikTok/Google Ads. Link: <a href="https://datapot.vn" target="_blank" style="color:var(--o)">datapot.vn</a></p></div>
+    </div>`;return;
+  }
+
+  if(_adsTab==='kpi'){
+    document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
+      <div class="sbox" style="border-left:3px solid var(--r)"><h3 style="margin-bottom:8px">🚨 Cảnh báo chiến dịch kém hiệu quả</h3>
+        <p style="font-size:.85rem;color:var(--d);margin-bottom:12px">Thiết lập ngưỡng cảnh báo. Khi chiến dịch vượt ngưỡng, hệ thống sẽ gửi thông báo.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">CPC tối đa</div><div style="font-size:1.5rem;font-weight:700;color:var(--r)">15,000₫</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo nếu CPC > 15k</div></div>
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">CTR tối thiểu</div><div style="font-size:1.5rem;font-weight:700;color:var(--o)">1.5%</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo nếu CTR < 1.5%</div></div>
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Chi phí/ngày max</div><div style="font-size:1.5rem;font-weight:700;color:var(--r)">5,000,000₫</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo vượt budget</div></div>
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">ROAS tối thiểu</div><div style="font-size:1.5rem;font-weight:700;color:var(--o)">3.0x</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo nếu ROAS < 3x</div></div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:var(--bg2);border-radius:8px;font-size:.8rem;color:var(--d)">💡 <b>Tự động hoá:</b> Tạo <b>Workflow</b> (Agent Prompt → phân tích data → Email cảnh báo) + <b>Scheduler</b> chạy mỗi giờ để phát hiện chiến dịch kém.</div>
+      </div>
+    </div>`;return;
+  }
+
+  // Dashboard tab (default)
+  const savedUrl=localStorage.getItem('ads_embed_url')||'';
+  document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
+    <div class="sbox"><h3 style="margin-bottom:12px">📊 Embed Looker Studio Dashboard</h3>
+      <div style="display:flex;gap:8px;margin-bottom:12px"><input id="adsEmbedUrl" type="text" value="${savedUrl}" placeholder="Dán embed URL từ Looker Studio (File → Embed Report → Copy link)" style="flex:1;padding:10px;border:1px solid var(--b);border-radius:8px;font-family:inherit;font-size:.85rem">
+      <button class="btn-o" onclick="const u=document.getElementById('adsEmbedUrl').value.trim();if(u){localStorage.setItem('ads_embed_url',u);renderAdsDashboard()}">Lưu & Hiển thị</button></div>
+      ${savedUrl?`<iframe src="${savedUrl}" width="100%" height="600" style="border:1px solid var(--b);border-radius:12px" allowfullscreen></iframe>`:`<div style="text-align:center;padding:48px;border:2px dashed var(--b);border-radius:12px;color:var(--d)">
+        <div style="font-size:2rem;margin-bottom:12px">📈</div>
+        <p style="font-size:.85rem">Chưa có dashboard. Vào tab <b>Hướng dẫn kết nối</b> để setup Looker Studio, sau đó dán embed link ở trên.</p>
+      </div>`}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Facebook Ads</div><div style="font-size:1.2rem">📘</div><div style="font-size:.75rem;color:var(--d)">Supermetrics / Adveronix</div></div>
+      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">TikTok Ads</div><div style="font-size:1.2rem">🎵</div><div style="font-size:.75rem;color:var(--d)">Coupler.io / Porter</div></div>
+      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Google Ads</div><div style="font-size:1.2rem">🔍</div><div style="font-size:.75rem;color:var(--d)">Native connector</div></div>
+      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Datapot.vn</div><div style="font-size:1.2rem">🇻🇳</div><div style="font-size:.75rem;color:var(--d)">Báo cáo đa nền tảng</div></div>
+    </div>
+  </div>`;
+}
+
+// ─── KOL / KOC CRM ──────────────────────────────────────────────────────────
+let _kolSearch='',_kolStatus='';
+const KOL_STATUSES=[{id:'new',label:'Mới',color:'var(--bb)'},{id:'contacted',label:'Đã liên hệ',color:'#e0f2fe'},{id:'quoted',label:'Đã báo giá',color:'#fef3c7'},{id:'active',label:'Đang hợp tác',color:'var(--gb)'},{id:'rejected',label:'Từ chối',color:'var(--rb)'}];
+async function renderKolCRM(){
+  const d=await api('GET','/api/portal/kol');const contacts=d.contacts||[];
+  window._kolContacts=contacts;
+  const filtered=contacts.filter(c=>{
+    if(_kolStatus&&c.status!==_kolStatus)return false;
+    if(_kolSearch){const q=_kolSearch.toLowerCase();if(!c.name.toLowerCase().includes(q)&&!(c.platform||'').toLowerCase().includes(q)&&!(c.category||'').toLowerCase().includes(q))return false}
+    return true;
+  });
+  const statusCounts={};contacts.forEach(c=>{statusCounts[c.status]=(statusCounts[c.status]||0)+1});
+  const statusPills=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+    <button onclick="_kolStatus='';renderKolCRM()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${!_kolStatus?'var(--o)':'var(--b)'};background:${!_kolStatus?'var(--o)':'var(--bg)'};color:${!_kolStatus?'#fff':'var(--d)'}">Tất cả (${contacts.length})</button>
+    ${KOL_STATUSES.map(s=>`<button onclick="_kolStatus='${s.id}';renderKolCRM()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid ${_kolStatus===s.id?'var(--o)':'var(--b)'};background:${_kolStatus===s.id?'var(--o)':'var(--bg)'};color:${_kolStatus===s.id?'#fff':'var(--d)'}">${s.label} (${statusCounts[s.id]||0})</button>`).join('')}
+  </div>`;
+  const searchBar=`<div style="margin-bottom:16px"><input type="text" placeholder="Tìm KOL... (tên, nền tảng, ngành)" value="${_kolSearch}" oninput="_kolSearch=this.value;renderKolCRM()" style="width:100%;padding:10px 16px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none"></div>`;
+  if(contacts.length===0){
+    document.getElementById('mainContent').innerHTML=`<div class="sbox" style="border-left:3px solid var(--r);margin-bottom:16px"><p style="font-size:.85rem;color:var(--d)">⚠️ <b>Lưu ý:</b> Không dùng Zalo cá nhân gửi tin hàng loạt (vi phạm chính sách Zalo + Luật ANTT 2026). Sử dụng <b>Zalo OA</b> của công ty.</p></div>
+    <div class="sbox" style="text-align:center;padding:48px"><div style="font-size:2.5rem;margin-bottom:12px">👥</div><h3 style="color:var(--d)">Chưa có KOL/KOC</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Thêm KOL/KOC để quản lý danh sách, theo dõi trạng thái và gửi tin tự động.</p><button class="btn-o" style="margin-top:16px" onclick="openKolForm()">+ Thêm KOL</button></div>`;return;
+  }
+  const cards=filtered.map(c=>{
+    const st=KOL_STATUSES.find(s=>s.id===c.status)||KOL_STATUSES[0];
+    return `<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><b>${c.name}</b> <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;background:${st.color}">${st.label}</span></div>
+      <div style="display:flex;gap:4px"><button class="btn-g" style="font-size:.7rem;padding:3px 8px" onclick="openKolForm('${c.id}')">Sửa</button><button class="btn-r" style="font-size:.7rem;padding:3px 8px" onclick="deleteKol('${c.id}')">Xóa</button></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:.8rem;color:var(--d)">
+        <div>📱 ${c.platform||'—'}</div><div>📁 ${c.category||'—'}</div>
+        <div>📞 ${c.phone||'—'}</div><div>💰 ${c.price_range||'—'}</div>
+      </div>
+      ${c.notes?`<div style="margin-top:8px;font-size:.75rem;color:var(--m);border-top:1px solid var(--bg3);padding-top:6px">📝 ${c.notes}</div>`:''}
+    </div>`;
+  }).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sbox" style="border-left:3px solid var(--r);margin-bottom:16px"><p style="font-size:.85rem;color:var(--d)">⚠️ <b>Lưu ý:</b> Không dùng Zalo cá nhân gửi tin hàng loạt (vi phạm chính sách Zalo + Luật ANTT 2026). Sử dụng <b>Zalo OA</b> của công ty.</p></div>
+  ${searchBar}${statusPills}
+  <div class="sr"><span class="sl">Hiển thị: <span class="sv">${filtered.length}</span> / ${contacts.length}</span><button class="btn-o" style="font-size:.8rem" onclick="openKolForm()">+ Thêm KOL</button></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:12px">${cards}</div>`;
+}
+function openKolForm(editId){
+  let c={name:'',platform:'Zalo',phone:'',category:'',price_range:'',status:'new',notes:''};
+  if(editId){const all=window._kolContacts||[];c=all.find(k=>k.id===editId)||c}
+  const statusOpts=KOL_STATUSES.map(s=>`<option value="${s.id}" ${c.status===s.id?'selected':''}>${s.label}</option>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3 style="margin-bottom:16px">${editId?'Sửa':'Thêm'} KOL/KOC</h3>
+    <div style="display:grid;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label style="font-size:.8rem;font-weight:600">Tên KOL/KOC *</label><input id="kolName" value="${c.name}" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit" placeholder="VD: Nguyễn Văn A"></div>
+        <div><label style="font-size:.8rem;font-weight:600">Nền tảng</label><select id="kolPlatform" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit"><option ${c.platform==='Zalo'?'selected':''}>Zalo</option><option ${c.platform==='Facebook'?'selected':''}>Facebook</option><option ${c.platform==='TikTok'?'selected':''}>TikTok</option><option ${c.platform==='Instagram'?'selected':''}>Instagram</option><option ${c.platform==='YouTube'?'selected':''}>YouTube</option><option ${c.platform==='Khác'?'selected':''}>Khác</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label style="font-size:.8rem;font-weight:600">Số điện thoại</label><input id="kolPhone" value="${c.phone}" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit" placeholder="0909..."></div>
+        <div><label style="font-size:.8rem;font-weight:600">Ngành/Lĩnh vực</label><input id="kolCategory" value="${c.category}" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit" placeholder="VD: Mỹ phẩm, Thời trang"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label style="font-size:.8rem;font-weight:600">Khoảng giá</label><input id="kolPrice" value="${c.price_range}" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit" placeholder="VD: 2-5 triệu/bài"></div>
+        <div><label style="font-size:.8rem;font-weight:600">Trạng thái</label><select id="kolStatus" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit">${statusOpts}</select></div>
+      </div>
+      <div><label style="font-size:.8rem;font-weight:600">Ghi chú</label><textarea id="kolNotes" rows="3" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit;font-size:.85rem" placeholder="Ghi chú thêm...">${c.notes}</textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn-g" onclick="renderKolCRM()">Huỷ</button><button class="btn-o" onclick="saveKol('${editId||''}')">${editId?'Cập nhật':'Thêm'}</button></div>
+    </div>
+  </div>`;
+}
+async function saveKol(editId){const n=document.getElementById('kolName').value.trim();if(!n){alert('Tên là bắt buộc');return}const body={name:n,platform:document.getElementById('kolPlatform').value,phone:document.getElementById('kolPhone').value.trim(),category:document.getElementById('kolCategory').value.trim(),price_range:document.getElementById('kolPrice').value.trim(),status:document.getElementById('kolStatus').value,notes:document.getElementById('kolNotes').value.trim()};if(editId){await api('PUT','/api/portal/kol/'+editId,body)}else{await api('POST','/api/portal/kol',body)}renderKolCRM()}
+async function deleteKol(id){if(!confirm('Xóa KOL này?'))return;await api('DELETE','/api/portal/kol/'+id);renderKolCRM()}
 
 // ─── Multi Channel Instances ─────────────────────────────────────────────────
 const CH_ICONS={telegram:'✈️',zalo:'💬',discord:'🎮',slack:'💼',whatsapp:'📱',facebook:'📘',email:'📧',web:'🌐'};

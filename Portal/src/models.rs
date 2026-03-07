@@ -417,6 +417,26 @@ pub struct SchedulerJob {
     pub run_count: u64,
 }
 
+/// A KOL/KOC contact for the CRM.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KolContact {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub platform: String,
+    #[serde(default)]
+    pub phone: String,
+    #[serde(default)]
+    pub category: String,
+    #[serde(default)]
+    pub price_range: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub notes: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PortalData {
     #[serde(default)]
@@ -452,6 +472,8 @@ pub struct PortalData {
     pub workflows: Vec<WorkflowDef>,
     #[serde(default)]
     pub scheduler_jobs: Vec<SchedulerJob>,
+    #[serde(default)]
+    pub kol_contacts: Vec<KolContact>,
 }
 
 // ---------------------------------------------------------------------------
