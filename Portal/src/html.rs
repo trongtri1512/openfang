@@ -898,38 +898,43 @@ function fillWfTemplate(){const tpl=document.getElementById('wfTemplate').value;
 
 async function renderWorkflows(){
   const d=await api('GET','/api/portal/workflows');
-  const wfs=Array.isArray(d)?d:(d.workflows||d.error?[]:[]);
-  if(d.error){document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3>Workflows</h3><div class="sbox-desc">Could not load workflows from OpenFang API.</div><div style="margin-top:8px;padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">${d.error}</div></div>`;return}
-  if(wfs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><h3 style="color:var(--d);font-weight:500">No workflows yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Create a workflow to chain multiple agents together in a pipeline.</p><button class="btn-o" style="margin-top:16px" onclick="openModal('createWorkflowModal')">+ Create Workflow</button></div>`;return}
-  const rows=wfs.map(w=>`<tr><td style="font-weight:500">${w.name||'-'}</td><td style="color:var(--d)">${w.description||'-'}</td><td><span class="badge plan">${w.steps||0} steps</span></td><td style="color:var(--d);font-size:.8rem">${fmtDate(w.created_at)}</td><td><button class="btn-g" onclick="openRunWorkflow('${w.id}')">Run</button> <button class="btn-g" onclick="viewWorkflowRuns('${w.id}')">Runs</button> <button class="btn-r" onclick="deleteWorkflow('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">Delete</button></td></tr>`).join('');
-  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${wfs.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Description</th><th>Steps</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const wfs=d.workflows||[];
+  if(wfs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><h3 style="color:var(--d)">Chưa có workflow</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Tạo workflow để tự động hoá chuỗi tác vụ (agent, email, HTTP, điều kiện).</p><button class="btn-o" style="margin-top:16px" onclick="openCreateWorkflow()">+ Tạo Workflow</button></div>`;return}
+  const cards=wfs.map(w=>{
+    const sc=Array.isArray(w.steps)?w.steps.length:0;
+    const sl=Array.isArray(w.steps)?w.steps.map((s,i)=>`<span style="display:inline-block;padding:2px 8px;background:var(--bg3);border-radius:4px;font-size:.7rem;margin:2px">${i+1}. ${s.name}</span>`).join(''):'';
+    return `<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><b>${w.name}</b> <span class="badge ${w.enabled?'running':'stopped'}">${w.enabled?'Active':'Paused'}</span></div><div style="display:flex;gap:6px"><button class="btn-g" style="font-size:.75rem" onclick="toggleWf('${w.id}',${!w.enabled})">${w.enabled?'Pause':'Resume'}</button><button class="btn-r" style="font-size:.75rem" onclick="deleteWf('${w.id}')">Xóa</button></div></div><p style="font-size:.8rem;color:var(--d);margin-bottom:8px">${w.description||''}</p><div style="margin-bottom:8px">${sl}</div><div style="font-size:.7rem;color:var(--m)">📊 ${sc} steps · 🔄 ${w.run_count||0} lần chạy</div></div>`;
+  }).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Workflows: <span class="sv">${wfs.length}</span></span><button class="btn-o" style="font-size:.8rem" onclick="openCreateWorkflow()">+ Tạo Workflow</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:12px">${cards}</div>`;
 }
-
-async function doCreateWorkflow(){const name=document.getElementById('wfName').value.trim();const desc=document.getElementById('wfDesc').value.trim();if(!name){alert('Workflow name is required');return}const stepEls=document.querySelectorAll('#wfStepsContainer .wf-step');if(stepEls.length===0){alert('Add at least one step');return}const steps=[];for(const el of stepEls){const sn=el.querySelector('.ws-name').value.trim()||'step';const ag=el.querySelector('.ws-agent').value.trim();if(!ag){alert('Agent name is required for step "'+sn+'"');return}const pr=el.querySelector('.ws-prompt').value;const md=el.querySelector('.ws-mode').value;const em=el.querySelector('.ws-err').value;const step={name:sn,agent_name:ag,prompt:pr,mode:md,error_mode:em};steps.push(step)}const body={name,description:desc,steps};const d=await api('POST','/api/portal/workflows',body);if(d.workflow_id||d.id){closeModal('createWorkflowModal');renderWorkflows()}else{alert(d.error||'Failed to create workflow')}}
-
-let runWfId=null;
-function openRunWorkflow(id){runWfId=id;document.getElementById('wfRunInput').value='';document.getElementById('wfRunResult').innerHTML='';document.getElementById('wfRunBtn').disabled=false;openModal('runWorkflowModal')}
-async function doRunWorkflow(){if(!runWfId)return;const input=document.getElementById('wfRunInput').value;document.getElementById('wfRunBtn').disabled=true;document.getElementById('wfRunResult').innerHTML='<div style="padding:12px;background:var(--bb);border-radius:8px;color:var(--bt);font-size:.85rem">⏳ Running workflow... This may take a while.</div>';try{const d=await api('POST','/api/portal/workflows/'+runWfId+'/run',{input});if(d.error){document.getElementById('wfRunResult').innerHTML=`<div style="padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">❌ ${d.error}</div>`}else{const output=d.output||JSON.stringify(d,null,2);document.getElementById('wfRunResult').innerHTML=`<div style="padding:12px;background:var(--gb);border-radius:8px;font-size:.85rem"><strong style="color:var(--gt)">✅ ${d.status||'completed'}</strong><pre style="margin-top:8px;white-space:pre-wrap;color:var(--t);font-size:.8rem">${output}</pre></div>`}}catch(e){document.getElementById('wfRunResult').innerHTML=`<div style="padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">❌ ${e}</div>`}finally{document.getElementById('wfRunBtn').disabled=false}}
-
-async function viewWorkflowRuns(id){const d=await api('GET','/api/portal/workflows/'+id+'/runs');const runs=Array.isArray(d)?d:(d.runs||[]);if(runs.length===0){alert('No runs found for this workflow');return}let html='<div class="sbox"><h3>Workflow Runs</h3><table class="dt"><thead><tr><th>Run ID</th><th>State</th><th>Steps</th><th>Started</th><th>Completed</th></tr></thead><tbody>';runs.forEach(r=>{html+=`<tr><td style="font-family:monospace;font-size:.75rem">${(r.id||'').substring(0,8)}...</td><td><span class="badge ${r.state==='completed'?'running':r.state==='failed'?'stopped':'plan'}">${r.state||'-'}</span></td><td>${r.steps_completed||0}</td><td style="font-size:.8rem">${fmtDate(r.started_at)}</td><td style="font-size:.8rem">${fmtDate(r.completed_at)}</td></tr>`});html+='</tbody></table></div>';document.getElementById('mainContent').innerHTML=html}
-
-async function deleteWorkflow(id,name){if(!confirm('Delete workflow "'+name+'"?'))return;const d=await api('DELETE','/api/portal/workflows/'+encodeURIComponent(id));renderWorkflows()}
+function openCreateWorkflow(){
+  const tOpts=(window._tenants||[]).map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3 style="margin-bottom:16px">Tạo Workflow mới</h3><div style="display:grid;gap:12px"><div><label style="font-size:.8rem;font-weight:600">Tên</label><input id="nwfN" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit" placeholder="VD: Email hàng ngày"></div><div><label style="font-size:.8rem;font-weight:600">Mô tả</label><input id="nwfD" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit"></div><div><label style="font-size:.8rem;font-weight:600">Tenant</label><select id="nwfT" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit"><option value="">-- Chọn --</option>${tOpts}</select></div><div id="nwfS"><div style="font-size:.8rem;font-weight:600;margin-bottom:8px">Steps</div></div><button class="btn-g" onclick="addWfSt()">+ Thêm Step</button><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn-g" onclick="renderWorkflows()">Huỷ</button><button class="btn-o" onclick="doCreateWf()">Tạo</button></div></div></div>`;
+  addWfSt();
+}
+let _wsi=0;
+function addWfSt(){_wsi++;const d=document.createElement('div');d.className='wfsi';d.style.cssText='padding:12px;border:1px solid var(--b);border-radius:8px;margin-bottom:8px;background:var(--bg2)';d.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:8px"><select class="wst" style="padding:6px;border:1px solid var(--b);border-radius:6px;font-family:inherit"><option value="prompt">🤖 Agent Prompt</option><option value="http_request">🌐 HTTP</option><option value="email">📧 Email</option><option value="delay">⏱️ Delay</option><option value="condition">🔀 Điều kiện</option></select><input class="wsn" style="flex:1;padding:6px;border:1px solid var(--b);border-radius:6px;font-family:inherit" placeholder="Tên step" value="Step ${_wsi}"><button class="btn-r" style="font-size:.75rem;padding:4px 8px" onclick="this.closest('.wfsi').remove()">✕</button></div><textarea class="wsc" rows="2" style="width:100%;padding:6px;border:1px solid var(--b);border-radius:6px;font-family:inherit;font-size:.8rem" placeholder='{"prompt":"..."} hoặc {"url":"..."}'></textarea>`;document.getElementById('nwfS').appendChild(d)}
+async function doCreateWf(){const n=document.getElementById('nwfN').value.trim();if(!n){alert('Tên là bắt buộc');return}const steps=[];document.querySelectorAll('.wfsi').forEach(el=>{let cfg={};try{cfg=JSON.parse(el.querySelector('.wsc').value||'{}')}catch(e){cfg={raw:el.querySelector('.wsc').value}}steps.push({step_type:el.querySelector('.wst').value,name:el.querySelector('.wsn').value.trim()||'Step',config:cfg})});const d=await api('POST','/api/portal/workflows',{name:n,description:document.getElementById('nwfD').value.trim(),tenant_id:document.getElementById('nwfT').value,steps});if(d.ok||d.id)renderWorkflows();else alert(d.error||'Lỗi')}
+async function toggleWf(id,e){await api('PUT','/api/portal/workflows/'+id,{enabled:e});renderWorkflows()}
+async function deleteWf(id){if(!confirm('Xóa workflow?'))return;await api('DELETE','/api/portal/workflows/'+id);renderWorkflows()}
 
 // ─── Automation: Scheduler / Cron Jobs ────────────────────────────────────────
-
 async function renderScheduler(){
-  const d=await api('GET','/api/portal/scheduler');
-  const jobs=Array.isArray(d)?d:(d.schedules||d.error?[]:[]);
-  if(d.error){document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3>Scheduler</h3><div class="sbox-desc">Could not load schedules from OpenFang API.</div><div style="margin-top:8px;padding:12px;background:var(--rb);border-radius:8px;color:var(--rt);font-size:.85rem">${d.error}</div></div>`;return}
-  if(jobs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><h3 style="color:var(--d);font-weight:500">No scheduled jobs yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Create cron jobs to run agents on a schedule.</p><button class="btn-o" style="margin-top:16px" onclick="openModal('createSchedulerModal')">+ Create Job</button></div>`;return}
-  const rows=jobs.map(j=>{const cron=j.cron||'';const agId=(j.agent_id||'').substring(0,8);const runs=j.run_count||0;return `<tr><td style="font-weight:500">${j.name||'-'}</td><td><span class="badge plan" style="font-family:monospace">${cron}</span></td><td style="font-family:monospace;font-size:.75rem">${agId}...</td><td>${runs}</td><td><span class="badge ${j.enabled!==false?'running':'stopped'}">${j.enabled!==false?'Enabled':'Disabled'}</span></td><td style="font-size:.8rem">${fmtDate(j.created_at)}</td><td><button class="btn-g" onclick="toggleSchedule('${j.id}',${!(j.enabled!==false)})">${j.enabled!==false?'Disable':'Enable'}</button> <button class="btn-r" onclick="deleteSchedule('${j.id}','${(j.name||'').replace(/'/g,"\\\\'")}')">Delete</button></td></tr>`}).join('');
-  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${jobs.length}</span></span></div><table class="dt"><thead><tr><th>Name</th><th>Cron</th><th>Agent</th><th>Runs</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const d=await api('GET','/api/portal/scheduler');const jobs=d.jobs||[];
+  const wd=await api('GET','/api/portal/workflows');window._workflows=wd.workflows||[];
+  if(jobs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--m)" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><h3 style="color:var(--d)">Chưa có lịch tự động</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Tạo cron job để chạy workflow theo lịch.</p><button class="btn-o" style="margin-top:16px" onclick="openCreateSch()">+ Tạo Lịch</button></div>`;return}
+  const cards=jobs.map(j=>{const wf=(window._workflows||[]).find(w=>w.id===j.workflow_id);return `<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><b>${j.name}</b> <span class="badge ${j.enabled?'running':'stopped'}">${j.enabled?'Active':'Paused'}</span></div><div style="display:flex;gap:6px"><button class="btn-g" style="font-size:.75rem" onclick="toggleSch('${j.id}',${!j.enabled})">${j.enabled?'Pause':'Resume'}</button><button class="btn-r" style="font-size:.75rem" onclick="deleteSch('${j.id}')">Xóa</button></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.8rem;color:var(--d)"><div>⏰ <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">${j.cron_expr}</code></div><div>🔗 ${wf?wf.name:'Không'}</div><div>🔄 ${j.run_count||0} lần</div><div>${j.last_run_at?'📅 '+fmtDate(j.last_run_at):'📅 Chưa chạy'}</div></div></div>`}).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Lịch: <span class="sv">${jobs.length}</span></span><button class="btn-o" style="font-size:.8rem" onclick="openCreateSch()">+ Tạo Lịch</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:12px">${cards}</div>`;
 }
+function openCreateSch(){
+  const tO=(window._tenants||[]).map(t=>`<option value="${t.id}">${t.name}</option>`).join('');const wO=(window._workflows||[]).map(w=>`<option value="${w.id}">${w.name}</option>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3 style="margin-bottom:16px">Tạo Lịch tự động</h3><div style="display:grid;gap:12px"><div><label style="font-size:.8rem;font-weight:600">Tên</label><input id="nsN" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit" placeholder="VD: Email hàng ngày"></div><div><label style="font-size:.8rem;font-weight:600">Cron</label><input id="nsC" value="0 8 * * *" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit"><div style="font-size:.7rem;color:var(--m);margin-top:4px"><code>0 8 * * *</code> = 8h sáng · <code>0 */2 * * *</code> = mỗi 2h · <code>0 9 * * 1</code> = 9h thứ Hai</div></div><div><label style="font-size:.8rem;font-weight:600">Tenant</label><select id="nsT" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit"><option value="">-- Chọn --</option>${tO}</select></div><div><label style="font-size:.8rem;font-weight:600">Workflow</label><select id="nsW" style="width:100%;padding:8px;border:1px solid var(--b);border-radius:8px;font-family:inherit"><option value="">-- Không liên kết --</option>${wO}</select></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn-g" onclick="renderScheduler()">Huỷ</button><button class="btn-o" onclick="doCreateSch()">Tạo</button></div></div></div>`;
+}
+async function doCreateSch(){const n=document.getElementById('nsN').value.trim();const c=document.getElementById('nsC').value.trim();if(!n||!c){alert('Tên và Cron là bắt buộc');return}const d=await api('POST','/api/portal/scheduler',{name:n,cron_expr:c,tenant_id:document.getElementById('nsT').value,workflow_id:document.getElementById('nsW').value||null});if(d.ok||d.id)renderScheduler();else alert(d.error||'Lỗi')}
+async function toggleSch(id,e){await api('PUT','/api/portal/scheduler/'+id,{enabled:e});renderScheduler()}
+async function deleteSch(id){if(!confirm('Xóa lịch?'))return;await api('DELETE','/api/portal/scheduler/'+id);renderScheduler()}
 
-async function doCreateSchedulerJob(){const name=document.getElementById('sjName').value.trim();const cron=document.getElementById('sjCron').value.trim();const agentId=document.getElementById('sjAgentId').value;const message=document.getElementById('sjMessage').value.trim();if(!name){alert('Job name is required');return}if(!cron){alert('Cron expression is required');return}if(!agentId){alert('Please select a Target Agent');return}if(!message){alert('Message is required');return}const body={name,cron,agent_id:agentId,message,enabled:true};try{const d=await api('POST','/api/portal/scheduler',body);if(d.id||d.schedule_id||d.ok){closeModal('createSchedulerModal');document.getElementById('sjName').value='';document.getElementById('sjCron').value='';document.getElementById('sjMessage').value='';renderScheduler()}else{alert(d.error||JSON.stringify(d)||'Failed to create scheduled job')}}catch(e){alert('Error: '+e.message)}}
 
-async function toggleSchedule(id,enabled){await api('PUT','/api/portal/scheduler/'+encodeURIComponent(id),{enabled});renderScheduler()}
-async function deleteSchedule(id,name){if(!confirm('Delete scheduled job "'+name+'"?'))return;await api('DELETE','/api/portal/scheduler/'+encodeURIComponent(id));renderScheduler()}
 
 // ─── Multi Channel Instances ─────────────────────────────────────────────────
 const CH_ICONS={telegram:'✈️',zalo:'💬',discord:'🎮',slack:'💼',whatsapp:'📱',facebook:'📘',email:'📧',web:'🌐'};
@@ -1136,20 +1141,18 @@ async function renderTools(){
 async function toggleTool(name,enable){await api('POST','/api/portal/tools/'+name+'/toggle',{enabled:enable});renderTools()}
 
 // ─── Skills Market ───────────────────────────────────────────────────────────
-let _skillTab='clawhub',_skillCat='',_skillSearch='';
+let _skillTab='market',_skillCat='',_skillSearch='';
 const SKILL_CATS=[
-  {id:'ai-llms',label:'AI & LLMs'},{id:'coding-ides',label:'Coding & IDEs'},{id:'git-github',label:'Git & GitHub'},
-  {id:'web-frontend',label:'Web & Frontend'},{id:'devops-cloud',label:'DevOps & Cloud'},{id:'browser-automation',label:'Browser & Automation'},
-  {id:'search-research',label:'Search & Research'},{id:'data-analytics',label:'Data & Analytics'},{id:'productivity',label:'Productivity'},
-  {id:'communication',label:'Communication'},{id:'notes-pkm',label:'Notes & PKM'},{id:'security',label:'Security'},
-  {id:'cli-utilities',label:'CLI Utilities'},{id:'marketing-sales',label:'Marketing & Sales'},{id:'finance',label:'Finance'},
-  {id:'smart-home',label:'Smart Home & IoT'}
+  {id:'bat-dong-san',label:'🏠 Bất động sản'},{id:'giao-duc',label:'📚 Giáo dục'},{id:'y-te',label:'🏥 Y tế & Sức khỏe'},
+  {id:'thuong-mai',label:'🛒 Thương mại điện tử'},{id:'tai-chinh',label:'💰 Tài chính & Kế toán'},{id:'du-lich',label:'🗺️ Du lịch'},
+  {id:'f-and-b',label:'☕ F&B'},{id:'logistics',label:'🚚 Logistics'},{id:'phap-ly',label:'⚖️ Pháp lý'},
+  {id:'truyen-thong',label:'📱 Truyền thông'},{id:'cntt',label:'💻 CNTT'},{id:'cong-cu',label:'🔧 Công cụ'}
 ];
 
 async function renderSkills(){
   const d=await api('GET','/api/portal/system/skills');
   const skills=d.skills||d||[];
-  if(!Array.isArray(skills)){document.getElementById('mainContent').innerHTML='<div class="sbox" style="text-align:center;padding:48px"><h3>Loading...</h3></div>';return}
+  if(!Array.isArray(skills)){document.getElementById('mainContent').innerHTML='<div class="sbox" style="text-align:center;padding:48px"><h3>Đang tải...</h3></div>';return}
 
   const installed=skills.filter(s=>s.installed);
   const filtered=skills.filter(s=>{
@@ -1161,42 +1164,49 @@ async function renderSkills(){
 
   // Info header
   const infoHeader=`<div class="sbox" style="border-left:3px solid var(--o);margin-bottom:20px">
-    <h3 style="margin-bottom:8px">🎯 Skills & Ecosystem</h3>
-    <p style="font-size:.85rem;color:var(--d);margin-bottom:8px">Skills mở rộng khả năng của agents. Portal hỗ trợ hệ sinh thái <b>OpenClaw/ClawHub</b> với 17,000+ skills cộng đồng.</p>
+    <h3 style="margin-bottom:8px">🎯 Skills theo ngành nghề Việt Nam</h3>
+    <p style="font-size:.85rem;color:var(--d);margin-bottom:8px">Skills giúp AI Agent chuyên môn hoá theo từng ngành nghề. Chọn skill phù hợp để agent thông minh hơn.</p>
     <ul style="font-size:.8rem;color:var(--d);list-style:disc;padding-left:20px;line-height:1.8">
-      <li><b>Prompt-only</b> — inject context và instructions vào system prompt</li>
-      <li><b>Python / Node.js</b> — executable tools agents có thể gọi khi chat</li>
-      <li><b>MCP Servers</b> — external tools via Model Context Protocol</li>
+      <li><b>Install</b> skill → Agent tự động hiểu context ngành nghề</li>
+      <li><b>Gán skill</b> cho Agent cụ thể trong trang Agents</li>
+      <li><b>Kết hợp</b> nhiều skills để agent đa năng (VD: BĐS + Pháp lý + CRM)</li>
     </ul>
   </div>`;
 
   // Tabs
   const tabs=`<div style="display:flex;gap:0;border-bottom:1px solid var(--b);margin-bottom:20px">
-    <button onclick="_skillTab='installed';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='installed'?'600':'500'};color:${_skillTab==='installed'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='installed'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Installed <span style="background:var(--bg3);padding:1px 8px;border-radius:10px;font-size:.75rem;font-weight:600;margin-left:4px">${installed.length}</span></button>
-    <button onclick="_skillTab='clawhub';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='clawhub'?'600':'500'};color:${_skillTab==='clawhub'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='clawhub'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">ClawHub</button>
-    <button onclick="_skillTab='quickstart';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='quickstart'?'600':'500'};color:${_skillTab==='quickstart'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='quickstart'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Quick Start</button>
+    <button onclick="_skillTab='installed';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='installed'?'600':'500'};color:${_skillTab==='installed'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='installed'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Đã cài <span style="background:var(--bg3);padding:1px 8px;border-radius:10px;font-size:.75rem;font-weight:600;margin-left:4px">${installed.length}</span></button>
+    <button onclick="_skillTab='market';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='market'?'600':'500'};color:${_skillTab==='market'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='market'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Ngành nghề</button>
+    <button onclick="_skillTab='guide';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='guide'?'600':'500'};color:${_skillTab==='guide'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='guide'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Hướng dẫn</button>
   </div>`;
 
-  // Quick Start tab
-  if(_skillTab==='quickstart'){
-    document.getElementById('mainContent').innerHTML=infoHeader+tabs+`<div class="sbox"><h3 style="margin-bottom:12px">🚀 Quick Start</h3>
+  // Guide tab
+  if(_skillTab==='guide'){
+    document.getElementById('mainContent').innerHTML=infoHeader+tabs+`<div class="sbox"><h3 style="margin-bottom:12px">🚀 Hướng dẫn sử dụng</h3>
       <div style="display:grid;gap:12px">
-        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>1.</b> Chọn tab <b>ClawHub</b> để duyệt skills</div>
-        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>2.</b> Bấm <span style="color:var(--gt);font-weight:600">Install</span> để cài skill cho agent</div>
-        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>3.</b> Vào <b>Agents</b> → chọn skills đã cài cho từng agent</div>
-        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>4.</b> Khám phá thêm tại <a href="https://clawhub.ai/" target="_blank" style="color:var(--o);font-weight:600">clawhub.ai ↗</a></div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>1.</b> Chọn tab <b>Ngành nghề</b> để duyệt skills theo lĩnh vực</div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>2.</b> Bấm <span style="color:var(--gt);font-weight:600">Install</span> để cài skill</div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>3.</b> Vào <b>Agents</b> → gán skills đã cài cho từng agent</div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>4.</b> Kết hợp workflow + scheduler để tự động hoá tác vụ</div>
+      </div>
+      <h3 style="margin:20px 0 12px">💡 Ví dụ combo skills phổ biến</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px"><b>🏠 Sàn BĐS</b><br><span style="font-size:.8rem;color:var(--d)">Tư vấn BĐS + Pháp lý BĐS + Mini CRM + Email</span></div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px"><b>🛒 Shop online</b><br><span style="font-size:.8rem;color:var(--d)">Shopee Assistant + CSKH + Quản lý kho + Theo dõi đơn</span></div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px"><b>🏥 Phòng khám</b><br><span style="font-size:.8rem;color:var(--d)">Tư vấn SK + Đặt lịch khám + Tra cứu thuốc + Dinh dưỡng</span></div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px"><b>📢 Agency</b><br><span style="font-size:.8rem;color:var(--d)">Content Creator + SEO VN + Chạy QC + Social Media</span></div>
       </div>
     </div>`;return;
   }
 
   // Search bar
-  const searchBar=`<div style="margin-bottom:16px"><input type="text" placeholder="Search ClawHub skills... (type to search)" value="${_skillSearch}" oninput="_skillSearch=this.value;renderSkills()" style="width:100%;padding:10px 16px 10px 40px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none">
+  const searchBar=`<div style="margin-bottom:16px"><input type="text" placeholder="Tìm kiếm skills... (tên hoặc mô tả)" value="${_skillSearch}" oninput="_skillSearch=this.value;renderSkills()" style="width:100%;padding:10px 16px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none">
   </div>`;
 
   // Category pills
-  const catPills=_skillTab==='clawhub'?`<div style="margin-bottom:6px;font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--m)">CATEGORIES</div>
+  const catPills=_skillTab==='market'?`<div style="margin-bottom:6px;font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--m)">NGÀNH NGHỀ</div>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">
-    <button onclick="_skillCat='';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${!_skillCat?'var(--o)':'var(--b)'};background:${!_skillCat?'var(--o)':'var(--bg)'};color:${!_skillCat?'#fff':'var(--d)'}">All</button>
+    <button onclick="_skillCat='';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${!_skillCat?'var(--o)':'var(--b)'};background:${!_skillCat?'var(--o)':'var(--bg)'};color:${!_skillCat?'#fff':'var(--d)'}">Tất cả</button>
     ${SKILL_CATS.map(c=>`<button onclick="_skillCat='${c.id}';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid ${_skillCat===c.id?'var(--o)':'var(--b)'};background:${_skillCat===c.id?'var(--o)':'var(--bg)'};color:${_skillCat===c.id?'#fff':'var(--d)'}">${c.label}</button>`).join('')}
   </div>`:'';
 
@@ -1208,29 +1218,25 @@ async function renderSkills(){
         <span style="font-size:1.5rem">${s.icon||'🎯'}</span>
         <div style="flex:1">
           <div style="font-weight:600;font-size:.9rem">${s.name}</div>
-          <div style="font-size:.65rem;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-top:1px">${catLabel?catLabel.label:s.category}</div>
+          <div style="font-size:.65rem;color:var(--m);margin-top:1px">${catLabel?catLabel.label:s.category}</div>
         </div>
-        <span style="font-size:.65rem;padding:2px 8px;border-radius:6px;font-weight:600;background:${s.builtin?'var(--bb)':'var(--pb)'};color:${s.builtin?'var(--bt)':'var(--pt)'}">${s.builtin?'PROMPT':'LOCAL'}</span>
       </div>
       <p style="font-size:.8rem;color:var(--d);margin-bottom:12px;line-height:1.5">${s.description||''}</p>
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:.7rem;color:var(--m)">v${s.version||'1.0'}</span>
         ${s.installed
-          ?'<button class="btn-r" style="font-size:.75rem;padding:4px 12px;background:var(--rb);border-radius:6px" onclick="uninstallSkill(\''+s.id+'\')">Uninstall</button>'
-          :'<button class="btn-o" style="font-size:.75rem;padding:4px 12px" onclick="installSkill(\''+s.id+'\')">Install</button>'}
+          ?'<button class="btn-r" style="font-size:.75rem;padding:4px 12px;background:var(--rb);border-radius:6px" onclick="uninstallSkill(\''+s.id+'\')">Gỡ cài</button>'
+          :'<button class="btn-o" style="font-size:.75rem;padding:4px 12px" onclick="installSkill(\''+s.id+'\')">Cài đặt</button>'}
       </div>
     </div>`;
   }).join('');
 
-  const noResults=filtered.length===0?`<div style="text-align:center;padding:32px;color:var(--d)"><div style="font-size:2rem;margin-bottom:8px">🔍</div><p style="font-size:.85rem">Không tìm thấy skill. Thử từ khóa khác hoặc <a href="https://clawhub.ai/" target="_blank" style="color:var(--o)">tìm trên ClawHub ↗</a></p></div>`:'';
+  const noResults=filtered.length===0?`<div style="text-align:center;padding:32px;color:var(--d)"><div style="font-size:2rem;margin-bottom:8px">🔍</div><p style="font-size:.85rem">Không tìm thấy skill phù hợp. Thử từ khóa khác.</p></div>`:'';
 
   document.getElementById('mainContent').innerHTML=infoHeader+tabs+searchBar+catPills+
     `<div class="sr"><span class="sl">Hiển thị: <span class="sv">${filtered.length}</span> / ${skills.length} skills</span></div>`+
     noResults+
-    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cards}</div>
-    <div style="text-align:center;margin-top:24px;padding:16px;font-size:.8rem;color:var(--m)">
-      Powered by <a href="https://clawhub.ai/" target="_blank" style="color:var(--o);font-weight:600">ClawHub.ai</a> — 17,000+ community skills
-    </div>`;
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cards}</div>`;
 }
 
 async function installSkill(id){

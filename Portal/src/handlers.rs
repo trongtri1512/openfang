@@ -1498,57 +1498,76 @@ fn seed_tools(data: &mut crate::models::PortalData) -> bool {
 fn seed_skills(data: &mut crate::models::PortalData) -> bool {
     if !data.skills.is_empty() { return false; }
     let defaults = vec![
-        // ─── ClawHub Popular (Trending) ───
-        ("self-improving-agent", "Self-Improving Agent", "🧠", "ai-llms", "Captures learnings, errors, and corrections for continuous improvement", "12.0"),
-        ("tavily-search", "Tavily Web Search", "🔍", "search-research", "AI-optimized web search via Tavily API for concise results", "10.0"),
-        ("find-skills", "Find Skills", "🎯", "ai-llms", "Meta-skill to discover and install other agent skills via natural language", "9.0"),
-        ("summarize", "Summarize", "📝", "productivity", "Summarize long URLs, documents, or uploaded files", "8.0"),
-        ("humanizer", "Humanizer", "🗣️", "ai-llms", "Refine AI-generated text to sound more natural and human-like", "7.0"),
-        ("proactive-agent", "Proactive Agent", "⚡", "ai-llms", "Transform agents into proactive helpers that anticipate user needs", "6.0"),
-        // ─── Coding & IDEs ───
-        ("rust-expert", "Rust Expert", "🦀", "coding-ides", "Rust ownership, async, lifetimes, error handling", "5.0"),
-        ("python-analyst", "Python Analyst", "🐍", "coding-ides", "Data analysis with pandas, numpy, matplotlib", "5.0"),
-        ("web-developer", "Web Developer", "🌐", "web-frontend", "Full-stack: HTML, CSS, JS, React, Node.js, TypeScript", "5.0"),
-        ("code-reviewer", "Code Reviewer", "👁️", "coding-ides", "Automated code review, best practices, refactoring suggestions", "4.0"),
-        // ─── Git & GitHub ───
-        ("github", "GitHub", "🐙", "git-github", "Manage issues, PRs, and repository content on GitHub", "8.0"),
-        ("git-assistant", "Git Assistant", "📦", "git-github", "Git commands, branching strategies, merge conflict resolution", "4.0"),
-        // ─── DevOps & Cloud ───
-        ("devops-engineer", "DevOps Engineer", "⚙️", "devops-cloud", "Docker, CI/CD, Kubernetes, cloud infrastructure", "5.0"),
-        ("docker-helper", "Docker Helper", "🐳", "devops-cloud", "Dockerfile optimization, compose management, container debugging", "4.0"),
-        // ─── Search & Research ───
-        ("research-assistant", "Research Assistant", "🔬", "search-research", "Academic research, literature review, summarization", "5.0"),
-        ("weather", "Weather", "🌤️", "search-research", "Real-time weather data retrieval for any location", "3.0"),
-        // ─── Data & Analytics ───
-        ("data-scientist", "Data Scientist", "📊", "data-analytics", "ML, statistics, data visualization, prediction models", "5.0"),
-        ("sql-expert", "SQL Expert", "🗄️", "data-analytics", "Complex queries, optimization, database design, migrations", "4.0"),
-        // ─── Productivity ───
-        ("notion", "Notion", "📓", "productivity", "Interact with Notion pages, databases, and workspaces", "6.0"),
-        ("obsidian", "Obsidian", "💎", "productivity", "Search, read, and manage notes within Obsidian vaults", "5.0"),
-        ("meeting-notes", "Meeting Notes", "🎙️", "productivity", "Summarize meeting transcripts into structured notes and action items", "4.0"),
-        // ─── Communication ───
-        ("content-writer", "Content Writer", "✍️", "communication", "SEO writing, blog posts, marketing copy, social media", "4.0"),
-        ("email-assistant", "Email Assistant", "📧", "communication", "Draft professional emails, follow-ups, and newsletters", "3.0"),
-        // ─── Security ───
-        ("security-auditor", "Security Auditor", "🔒", "security", "Vulnerability scanning, code audit, OWASP compliance", "5.0"),
-        // ─── Browser & Automation ───
-        ("browser-automation", "Browser Automation", "🖥️", "browser-automation", "Web scraping, form filling, automated testing with Puppeteer", "4.0"),
-        // ─── Notes & PKM ───
-        ("nano-pdf", "Nano PDF", "📄", "notes-pkm", "Extract text and data from PDF files efficiently", "5.0"),
-        // ─── Marketing & Sales ───
-        ("business-analyst", "Business Analyst", "💼", "marketing-sales", "Market research, financial analysis, strategy planning", "4.0"),
-        ("seo-optimizer", "SEO Optimizer", "📈", "marketing-sales", "SEO analysis, keyword research, content optimization", "3.0"),
-        // ─── Finance ───
-        ("finance-advisor", "Finance Advisor", "💰", "finance", "Budget analysis, expense tracking, financial reports", "3.0"),
-        // ─── QA & Testing ───
-        ("qa-tester", "QA Tester", "🧪", "coding-ides", "Test automation, bug reporting, quality assurance", "4.0"),
-        // ─── CLI Utilities ───
-        ("sonoscli", "Sonos CLI", "🎵", "cli-utilities", "Control Sonos speakers and music playback via commands", "3.0"),
-        // ─── Smart Home & IoT ───
-        ("smart-home", "Smart Home", "🏠", "smart-home", "Control IoT devices, home automation, sensor monitoring", "2.0"),
+        // ─── Bất động sản ───
+        ("bds-tu-van", "Tư vấn BĐS", "🏠", "bat-dong-san", "Tư vấn mua bán, cho thuê bất động sản, phân tích giá thị trường"),
+        ("bds-dinh-gia", "Định giá BĐS", "📊", "bat-dong-san", "Phân tích và định giá bất động sản dựa trên vị trí, diện tích, tiện ích"),
+        ("bds-phap-ly", "Pháp lý BĐS", "📋", "bat-dong-san", "Kiểm tra pháp lý, sổ đỏ, giấy phép xây dựng, quy hoạch"),
+        ("bds-marketing", "Marketing BĐS", "📢", "bat-dong-san", "Tạo content quảng cáo, mô tả dự án, landing page BĐS"),
+        ("bds-cskh", "CSKH BĐS", "🤝", "bat-dong-san", "Chăm sóc khách hàng, theo dõi leads, lịch hẹn xem nhà"),
+        // ─── Giáo dục ───
+        ("gd-gia-su", "Gia sư AI", "📚", "giao-duc", "Dạy kèm, giải bài tập, ôn thi theo chương trình VN"),
+        ("gd-tuyen-sinh", "Tư vấn tuyển sinh", "🎓", "giao-duc", "Tư vấn chọn trường, ngành học, điểm chuẩn các trường ĐH"),
+        ("gd-tieng-anh", "Dạy tiếng Anh", "🌍", "giao-duc", "Luyện IELTS, TOEIC, giao tiếp tiếng Anh cho người Việt"),
+        ("gd-soan-bai", "Soạn giáo án", "📝", "giao-duc", "Soạn giáo án, đề thi, bài tập theo chuẩn Bộ GD&ĐT"),
+        ("gd-du-hoc", "Tư vấn du học", "✈️", "giao-duc", "Tư vấn du học Úc, Mỹ, Nhật, Hàn, hồ sơ visa, học bổng"),
+        // ─── Y tế & Sức khỏe ───
+        ("yt-tu-van", "Tư vấn sức khỏe", "🏥", "y-te", "Tư vấn sức khỏe cơ bản, triệu chứng, khi nào cần khám"),
+        ("yt-dinh-duong", "Tư vấn dinh dưỡng", "🥗", "y-te", "Lập thực đơn, tính calo, chế độ ăn theo thể trạng"),
+        ("yt-lich-kham", "Đặt lịch khám", "📅", "y-te", "Hỗ trợ đặt lịch, nhắc nhở tái khám, quản lý hồ sơ bệnh nhân"),
+        ("yt-duoc-pham", "Tra cứu thuốc", "💊", "y-te", "Tra cứu thông tin thuốc, tương tác, liều dùng, tác dụng phụ"),
+        // ─── Thương mại điện tử ───
+        ("tmdt-ban-hang", "Bán hàng online", "🛒", "thuong-mai", "Tư vấn sản phẩm, chốt đơn, upsell, cross-sell qua chat"),
+        ("tmdt-shopee", "Shopee Assistant", "🧡", "thuong-mai", "Quản lý shop Shopee, trả lời đánh giá, xử lý đơn hàng"),
+        ("tmdt-lazada", "Lazada Assistant", "💜", "thuong-mai", "Quản lý gian hàng Lazada, marketing, chạy Flash Sale"),
+        ("tmdt-kho", "Quản lý kho", "📦", "thuong-mai", "Theo dõi tồn kho, cảnh báo hết hàng, đặt hàng tự động"),
+        ("tmdt-cskh", "CSKH E-commerce", "💬", "thuong-mai", "Xử lý khiếu nại, đổi trả, theo dõi vận chuyển"),
+        // ─── Tài chính & Kế toán ───
+        ("tc-ke-toan", "Kế toán AI", "🧮", "tai-chinh", "Hỗ trợ hạch toán, lập báo cáo tài chính, thuế GTGT"),
+        ("tc-thue", "Tư vấn thuế", "💵", "tai-chinh", "Kê khai thuế TNCN, TNDN, hoá đơn điện tử, quyết toán"),
+        ("tc-dau-tu", "Tư vấn đầu tư", "📈", "tai-chinh", "Phân tích cổ phiếu, crypto, quỹ mở tại thị trường VN"),
+        ("tc-bao-hiem", "Tư vấn bảo hiểm", "🛡️", "tai-chinh", "So sánh bảo hiểm nhân thọ, sức khỏe, xe cơ giới"),
+        ("tc-vay", "Tư vấn vay vốn", "🏦", "tai-chinh", "So sánh lãi suất ngân hàng, hồ sơ vay mua nhà, kinh doanh"),
+        // ─── Du lịch & Nhà hàng ───
+        ("dl-tour", "Tư vấn tour", "🗺️", "du-lich", "Lên lịch trình, đặt phòng, gợi ý điểm đến VN và quốc tế"),
+        ("dl-visa", "Hỗ trợ visa", "🛂", "du-lich", "Hướng dẫn hồ sơ visa, e-visa, thủ tục xuất nhập cảnh"),
+        ("dl-khach-san", "Đặt phòng KS", "🏨", "du-lich", "So sánh giá phòng, review khách sạn, hỗ trợ booking"),
+        ("dl-am-thuc", "Gợi ý ẩm thực", "🍜", "du-lich", "Giới thiệu quán ăn, đặc sản vùng miền, review ẩm thực"),
+        // ─── F&B ───
+        ("fb-order", "Nhận đơn F&B", "☕", "f-and-b", "Nhận order qua chat, gợi ý combo, upsell đồ uống/topping"),
+        ("fb-menu", "Quản lý menu", "📋", "f-and-b", "Cập nhật menu, giá, khuyến mãi, món hết hàng tự động"),
+        ("fb-review", "Phản hồi review", "⭐", "f-and-b", "Tự động trả lời review Google/Facebook, xử lý phàn nàn"),
+        ("fb-dat-ban", "Đặt bàn", "🍽️", "f-and-b", "Đặt bàn qua chat, nhắc nhở, quản lý chỗ ngồi"),
+        // ─── Logistics & Vận chuyển ───
+        ("log-tracking", "Theo dõi đơn", "🚚", "logistics", "Tracking đơn hàng GHTK, GHN, Viettel Post, J&T"),
+        ("log-bao-gia", "Báo giá vận chuyển", "💲", "logistics", "So sánh giá ship giữa các hãng, ước tính thời gian"),
+        ("log-kho", "Quản lý kho logistics", "🏭", "logistics", "Quản lý nhập xuất kho, vị trí hàng, inventory tracking"),
+        // ─── Pháp lý ───
+        ("pl-hop-dong", "Soạn hợp đồng", "📄", "phap-ly", "Soạn hợp đồng lao động, thuê nhà, mua bán, hợp tác"),
+        ("pl-tu-van", "Tư vấn pháp luật", "⚖️", "phap-ly", "Tư vấn luật doanh nghiệp, lao động, đất đai VN"),
+        ("pl-dang-ky", "Đăng ký kinh doanh", "📑", "phap-ly", "Hướng dẫn thành lập công ty, giấy phép, thủ tục hành chính"),
+        // ─── Truyền thông & Marketing ───
+        ("tt-content", "Content Creator", "📱", "truyen-thong", "Viết bài Facebook, Instagram, TikTok cho thị trường VN"),
+        ("tt-seo", "SEO Việt Nam", "🔍", "truyen-thong", "Tối ưu SEO cho thị trường VN, từ khóa tiếng Việt, backlink"),
+        ("tt-ads", "Chạy quảng cáo", "📣", "truyen-thong", "Tư vấn Facebook Ads, Google Ads, TikTok Ads cho VN"),
+        ("tt-social", "Social Media Manager", "📲", "truyen-thong", "Lên lịch đăng bài, phân tích engagement, quản lý fanpage"),
+        ("tt-pr", "PR & Truyền thông", "📰", "truyen-thong", "Soạn thông cáo báo chí, xử lý khủng hoảng truyền thông"),
+        // ─── CNTT & Phần mềm ───
+        ("cntt-support", "IT Helpdesk", "🖥️", "cntt", "Hỗ trợ kỹ thuật, troubleshoot, hướng dẫn sử dụng phần mềm"),
+        ("cntt-code", "Lập trình viên", "💻", "cntt", "Hỗ trợ code Python, JavaScript, Rust, review code, debug"),
+        ("cntt-devops", "DevOps", "⚙️", "cntt", "Docker, CI/CD, deploy, monitoring, cloud VN (Viettel Cloud, FPT)"),
+        ("cntt-database", "Quản trị CSDL", "🗄️", "cntt", "Thiết kế database, query optimization, backup, migration"),
+        // ─── Công cụ chung ───
+        ("tool-email", "Email Integration", "📧", "cong-cu", "Đọc, soạn, gửi email tự động qua IMAP/SMTP"),
+        ("tool-summary", "Tóm tắt văn bản", "📝", "cong-cu", "Tóm tắt tài liệu dài, meeting notes, báo cáo"),
+        ("tool-translate", "Dịch ngôn ngữ", "🌐", "cong-cu", "Dịch Anh-Việt, Việt-Anh, Nhật-Việt chuyên ngành"),
+        ("tool-ocr", "Đọc hình ảnh OCR", "📷", "cong-cu", "Trích xuất text từ hình ảnh, CMND, hoá đơn, biên lai"),
+        ("tool-excel", "Xử lý Excel", "📊", "cong-cu", "Phân tích, tạo báo cáo, pivot table từ file Excel/CSV"),
+        ("tool-pdf", "Đọc PDF", "📄", "cong-cu", "Trích xuất nội dung PDF, hợp đồng, tài liệu scan"),
+        ("tool-calendar", "Lịch & Nhắc nhở", "📅", "cong-cu", "Quản lý lịch hẹn, nhắc nhở task, deadline tự động"),
+        ("tool-crm", "Mini CRM", "👥", "cong-cu", "Quản lý khách hàng, lịch sử tương tác, pipeline bán hàng"),
     ];
-    for (id, name, icon, cat, desc, ver) in defaults {
-        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: format!("{}", ver), installed: false, builtin: true });
+    for (id, name, icon, cat, desc) in defaults {
+        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: "1.0".to_string(), installed: false, builtin: true });
     }
     true
 }
@@ -1719,6 +1738,112 @@ pub async fn portal_usage(State(state): State<Arc<PortalState>>, headers: axum::
         "requests_used": data.traces.len(), "requests_max": 10000,
         "apikeys_used": data.api_keys.len(), "apikeys_max": 5
     })).into_response()
+}
+
+// ─── Independent Workflow Engine ─────────────────────────────────────────────
+
+pub async fn portal_workflows_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let data = load_data(&state);
+    let tenant_id = headers.get("x-tenant-id").and_then(|v| v.to_str().ok()).unwrap_or("");
+    let workflows: Vec<&WorkflowDef> = if tenant_id.is_empty() { data.workflows.iter().collect() } else { data.workflows.iter().filter(|w| w.tenant_id == tenant_id).collect() };
+    Json(serde_json::json!({"workflows": workflows})).into_response()
+}
+
+pub async fn portal_workflow_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    let id = uuid::Uuid::new_v4().to_string();
+    let steps: Vec<WorkflowStep> = serde_json::from_value(body.get("steps").cloned().unwrap_or(serde_json::json!([]))).unwrap_or_default();
+    let wf = WorkflowDef {
+        id: id.clone(),
+        tenant_id: body["tenant_id"].as_str().unwrap_or("").to_string(),
+        name: body["name"].as_str().unwrap_or("Untitled").to_string(),
+        description: body["description"].as_str().unwrap_or("").to_string(),
+        steps,
+        enabled: true,
+        created_at: now_iso(),
+        last_run_at: None,
+        run_count: 0,
+    };
+    data.workflows.push(wf);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok": true, "id": id})).into_response()
+}
+
+pub async fn portal_workflow_update(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, axum::extract::Path(id): axum::extract::Path<String>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    if let Some(wf) = data.workflows.iter_mut().find(|w| w.id == id) {
+        if let Some(n) = body["name"].as_str() { wf.name = n.to_string(); }
+        if let Some(d) = body["description"].as_str() { wf.description = d.to_string(); }
+        if let Some(e) = body["enabled"].as_bool() { wf.enabled = e; }
+        if let Some(steps) = body.get("steps") { wf.steps = serde_json::from_value(steps.clone()).unwrap_or_default(); }
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok": true})).into_response()
+    } else { (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Not found"}))).into_response() }
+}
+
+pub async fn portal_workflow_delete(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, axum::extract::Path(id): axum::extract::Path<String>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    data.workflows.retain(|w| w.id != id);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
+// ─── Independent Scheduler Engine ────────────────────────────────────────────
+
+pub async fn portal_scheduler_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let data = load_data(&state);
+    let tenant_id = headers.get("x-tenant-id").and_then(|v| v.to_str().ok()).unwrap_or("");
+    let jobs: Vec<&SchedulerJob> = if tenant_id.is_empty() { data.scheduler_jobs.iter().collect() } else { data.scheduler_jobs.iter().filter(|j| j.tenant_id == tenant_id).collect() };
+    Json(serde_json::json!({"jobs": jobs})).into_response()
+}
+
+pub async fn portal_scheduler_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    let id = uuid::Uuid::new_v4().to_string();
+    let job = SchedulerJob {
+        id: id.clone(),
+        tenant_id: body["tenant_id"].as_str().unwrap_or("").to_string(),
+        name: body["name"].as_str().unwrap_or("Untitled Job").to_string(),
+        cron_expr: body["cron_expr"].as_str().unwrap_or("0 8 * * *").to_string(),
+        workflow_id: body["workflow_id"].as_str().map(|s| s.to_string()),
+        agent_id: body["agent_id"].as_str().map(|s| s.to_string()),
+        enabled: true,
+        created_at: now_iso(),
+        last_run_at: None,
+        next_run_at: None,
+        run_count: 0,
+    };
+    data.scheduler_jobs.push(job);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok": true, "id": id})).into_response()
+}
+
+pub async fn portal_scheduler_update(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, axum::extract::Path(id): axum::extract::Path<String>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    if let Some(job) = data.scheduler_jobs.iter_mut().find(|j| j.id == id) {
+        if let Some(n) = body["name"].as_str() { job.name = n.to_string(); }
+        if let Some(c) = body["cron_expr"].as_str() { job.cron_expr = c.to_string(); }
+        if let Some(e) = body["enabled"].as_bool() { job.enabled = e; }
+        if let Some(w) = body["workflow_id"].as_str() { job.workflow_id = Some(w.to_string()); }
+        if let Some(a) = body["agent_id"].as_str() { job.agent_id = Some(a.to_string()); }
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok": true})).into_response()
+    } else { (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Not found"}))).into_response() }
+}
+
+pub async fn portal_scheduler_delete(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, axum::extract::Path(id): axum::extract::Path<String>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    data.scheduler_jobs.retain(|j| j.id != id);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok": true})).into_response()
 }
 
 // ─── Org Map (computed from tenants + agents) ────────────────────────────────

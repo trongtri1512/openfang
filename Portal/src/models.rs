@@ -366,6 +366,57 @@ pub struct PortalApiKey {
 // Aggregate data file
 // ---------------------------------------------------------------------------
 
+/// A workflow definition with multi-step pipeline.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowDef {
+    pub id: String,
+    pub tenant_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub steps: Vec<WorkflowStep>,
+    #[serde(default)]
+    pub enabled: bool,
+    pub created_at: String,
+    #[serde(default)]
+    pub last_run_at: Option<String>,
+    #[serde(default)]
+    pub run_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowStep {
+    pub step_type: String,
+    pub name: String,
+    #[serde(default)]
+    pub config: serde_json::Value,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+}
+
+/// A scheduler job with cron expression.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchedulerJob {
+    pub id: String,
+    pub tenant_id: String,
+    pub name: String,
+    pub cron_expr: String,
+    #[serde(default)]
+    pub workflow_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub enabled: bool,
+    pub created_at: String,
+    #[serde(default)]
+    pub last_run_at: Option<String>,
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub run_count: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct PortalData {
     #[serde(default)]
@@ -397,6 +448,10 @@ pub struct PortalData {
     pub api_keys: Vec<PortalApiKey>,
     #[serde(default)]
     pub agents: Vec<TenantAgent>,
+    #[serde(default)]
+    pub workflows: Vec<WorkflowDef>,
+    #[serde(default)]
+    pub scheduler_jobs: Vec<SchedulerJob>,
 }
 
 // ---------------------------------------------------------------------------

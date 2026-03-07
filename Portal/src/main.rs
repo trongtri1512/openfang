@@ -149,6 +149,12 @@ async fn main() {
         .route("/api/portal/configfile", axum::routing::get(handlers::portal_configfile).post(handlers::portal_configfile_save))
         // Orchestration
         .route("/api/portal/orchestration", axum::routing::get(handlers::portal_orchestration).post(handlers::portal_orchestration_create))
+        // Independent Workflow Engine
+        .route("/api/portal/workflows", axum::routing::get(handlers::portal_workflows_list).post(handlers::portal_workflow_create))
+        .route("/api/portal/workflows/{id}", axum::routing::put(handlers::portal_workflow_update).delete(handlers::portal_workflow_delete))
+        // Independent Scheduler Engine
+        .route("/api/portal/scheduler", axum::routing::get(handlers::portal_scheduler_list).post(handlers::portal_scheduler_create))
+        .route("/api/portal/scheduler/{id}", axum::routing::put(handlers::portal_scheduler_update).delete(handlers::portal_scheduler_delete))
         .with_state(state);
 
     // Add CORS
