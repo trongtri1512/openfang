@@ -1372,7 +1372,8 @@ pub async fn channel_webhook_verify(
 
 // ─── Multi-Agent per Tenant ──────────────────────────────────────────────────
 
-use crate::models::TenantAgent;
+
+
 
 /// List agents for a given tenant.
 pub async fn portal_agents_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, query: axum::extract::Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
@@ -1468,7 +1469,7 @@ pub async fn portal_channel_assign_agent(State(state): State<Arc<PortalState>>, 
 
 // ─── Independent Portal Features (local data, no OpenFang dependency) ────────
 
-use crate::models::{KnowledgeDoc, PortalTool, PortalSkill, AgentTemplate, Delegation, PortalApiKey};
+
 
 /// Seed default tools if empty.
 fn seed_tools(data: &mut crate::models::PortalData) -> bool {
