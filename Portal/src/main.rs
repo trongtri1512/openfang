@@ -14,6 +14,7 @@ mod models;
 mod db;
 mod handlers;
 mod html;
+mod channels;
 
 use std::sync::Arc;
 use tracing::info;
@@ -108,6 +109,13 @@ async fn main() {
         .route("/api/portal/system/providers/{name}/test", axum::routing::post(handlers::portal_system_provider_test))
         // Diagnostic: test OpenFang API connectivity
         .route("/api/portal/system/test", axum::routing::get(handlers::portal_system_test))
+        // Independent Channel Instances (multi-channel support)
+        .route("/api/portal/channel-instances", axum::routing::get(handlers::channel_instance_list).post(handlers::channel_instance_create))
+        .route("/api/portal/channel-instances/{id}", axum::routing::get(handlers::channel_instance_detail).put(handlers::channel_instance_update).delete(handlers::channel_instance_delete))
+        .route("/api/portal/channel-instances/{id}/test", axum::routing::post(handlers::channel_instance_test))
+        .route("/api/portal/channel-instances/{id}/webhook", axum::routing::post(handlers::channel_instance_set_webhook))
+        // Channel webhook receivers (incoming messages from Telegram/Zalo/etc.)
+        .route("/webhook/ch/{id}", axum::routing::get(handlers::channel_webhook_verify).post(handlers::channel_webhook_receive))
         .with_state(state);
 
     // Add CORS

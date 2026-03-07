@@ -61,6 +61,47 @@ pub struct TenantChannel {
     pub added_at: String,
 }
 
+/// An independent channel instance managed by Portal (not OpenFang).
+/// Allows multiple instances of the same channel type (e.g., 3 Telegram bots).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelInstance {
+    pub id: String,
+    pub tenant_id: String,
+    pub channel_type: String,
+    pub display_name: String,
+    pub enabled: bool,
+    pub config: serde_json::Value,
+    pub webhook_path: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub last_message_at: Option<String>,
+    #[serde(default)]
+    pub message_count: u64,
+    #[serde(default)]
+    pub status: ChannelInstanceStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ChannelInstanceStatus {
+    #[default]
+    Pending,
+    Active,
+    Error,
+    Disabled,
+}
+
+impl std::fmt::Display for ChannelInstanceStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChannelInstanceStatus::Pending => write!(f, "pending"),
+            ChannelInstanceStatus::Active => write!(f, "active"),
+            ChannelInstanceStatus::Error => write!(f, "error"),
+            ChannelInstanceStatus::Disabled => write!(f, "disabled"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TenantStatus {
@@ -161,6 +202,8 @@ pub struct PortalData {
     pub plans: Vec<ServicePlan>,
     #[serde(default)]
     pub tenants: Vec<Tenant>,
+    #[serde(default)]
+    pub channel_instances: Vec<ChannelInstance>,
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +276,8 @@ pub struct PortalRemoveChannelRequest {
 #[derive(Debug, Deserialize)]
 pub struct PortalUpdateChannelConfigRequest {
     pub channel_name: String,
+    #[serde(default)]
+    pub channel_instance_id: Option<String>,
     pub config: serde_json::Value,
 }
 
@@ -285,6 +330,25 @@ pub struct PortalCreateMyTenantRequest {
     pub name: String,
     pub provider: Option<String>,
     pub model: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Channel Instance request types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct CreateChannelInstanceRequest {
+    pub tenant_id: String,
+    pub channel_type: String,
+    pub display_name: String,
+    pub config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateChannelInstanceRequest {
+    pub display_name: Option<String>,
+    pub enabled: Option<bool>,
+    pub config: Option<serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------

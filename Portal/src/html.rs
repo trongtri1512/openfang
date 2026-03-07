@@ -200,6 +200,8 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
       <div class="sbu" id="sbUser">Admin</div>
       <div class="sbn">
         <a class="si active" onclick="showPage('tenants')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg>Tenants</a>
+        <div class="sb-label">Channels</div>
+        <a class="si" onclick="showPage('channel-instances')" id="channelInstancesNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Multi Channels</a>
         <div class="sb-label">Automation</div>
         <a class="si" onclick="showPage('workflows')" id="workflowsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Workflows</a>
         <a class="si" onclick="showPage('scheduler')" id="schedulerNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Scheduler</a>
@@ -330,6 +332,18 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
   </div>
 </div>
 
+<!-- Add Channel Instance Modal -->
+<div class="modal-bg" id="addChannelInstanceModal">
+  <div class="modal">
+    <h3>Add Channel Instance</h3>
+    <div class="fg"><label>Tenant</label><select id="ciTenant"></select></div>
+    <div class="fg"><label>Channel Type</label><select id="ciType"><option value="telegram">Telegram</option><option value="zalo">Zalo OA</option><option value="discord">Discord</option><option value="slack">Slack</option><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook</option><option value="email">Email</option><option value="web">Web Widget</option></select></div>
+    <div class="fg"><label>Display Name</label><input type="text" id="ciName" placeholder="e.g. Shop A - Telegram Bot"></div>
+    <div class="fg"><label>Bot Token</label><input type="text" id="ciToken" placeholder="e.g. 123456:ABC-DEF..."></div>
+    <div class="actions"><button class="btn-cancel" onclick="closeModal('addChannelInstanceModal')">Cancel</button><button class="btn-o" onclick="doAddChannelInstance()">Add Channel</button></div>
+  </div>
+</div>
+
 <script>
 let S=null,T=[],D=null,CTab='overview';
 const ROLES=['Owner','Manager','Contributor','Viewer'];
@@ -347,11 +361,12 @@ async function loadT(){const d=await api('GET','/api/portal/tenants');T=d.tenant
 // Navigation
 function showPage(p){D=null;document.querySelectorAll('.sbn .si').forEach(el=>el.classList.remove('active'));document.getElementById('headerActions').innerHTML='';history.pushState({page:p},'','/');
 if(p==='tenants'){document.querySelector('.sbn .si:first-child').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg> Tenants';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateTenantModal()">+ Create Tenant</button>';renderList()}
+else if(p==='channel-instances'){document.getElementById('channelInstancesNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Multi Channels';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openAddChannelInstanceModal()">+ Add Channel</button>';renderChannelInstances()}
 else if(p==='members'){document.getElementById('membersNav').classList.add('active');document.getElementById('pageTitle').textContent='Members';renderMembers()}
 else if(p==='users'){document.getElementById('usersNav').classList.add('active');document.getElementById('pageTitle').textContent='Users';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateUserModal()">+ Create User</button>';renderUsers()}
 else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}
 else if(p==='workflows'){document.getElementById('workflowsNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Workflows';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createWorkflowModal\")">+ Create Workflow</button>';renderWorkflows()}
-else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Job</button>';renderScheduler()}}
+else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Job</button>';renderScheduler()}
 
 // Tenant List
 function renderList(){
@@ -883,6 +898,112 @@ async function doCreateSchedulerJob(){const name=document.getElementById('sjName
 
 async function toggleSchedule(id,enabled){await api('PUT','/api/portal/scheduler/'+encodeURIComponent(id),{enabled});renderScheduler()}
 async function deleteSchedule(id,name){if(!confirm('Delete scheduled job "'+name+'"?'))return;await api('DELETE','/api/portal/scheduler/'+encodeURIComponent(id));renderScheduler()}
+
+// ─── Multi Channel Instances ─────────────────────────────────────────────────
+const CH_ICONS={telegram:'✈️',zalo:'💬',discord:'🎮',slack:'💼',whatsapp:'📱',facebook:'📘',email:'📧',web:'🌐'};
+const CH_COLORS={telegram:'#0088cc',zalo:'#0068ff',discord:'#5865F2',slack:'#4A154B',whatsapp:'#25D366',facebook:'#1877F2',email:'#EA4335',web:'#FF5C00'};
+
+async function renderChannelInstances(){
+  const d=await api('GET','/api/portal/channel-instances');
+  const cis=d.channel_instances||[];
+  const statusBadge=s=>s==='active'?'<span class="badge running">Active</span>':s==='error'?'<span class="badge stopped">Error</span>':s==='disabled'?'<span class="badge stopped">Disabled</span>':'<span class="badge plan">Pending</span>';
+  if(cis.length===0){
+    document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><div style="font-size:3rem;margin-bottom:16px">📡</div><h3 style="color:var(--d);font-weight:500">No channel instances yet</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Add independent channel connections (e.g., multiple Telegram bots) that route messages to your AI agents.<br>Unlike OpenFang channels, you can add <b>multiple instances</b> of the same type.</p><button class="btn-o" style="margin-top:16px" onclick="openAddChannelInstanceModal()">+ Add Channel Instance</button></div>`;
+    return;
+  }
+  // Group by tenant
+  const byTenant={};
+  cis.forEach(ci=>{const tn=T.find(t=>t.id===ci.tenant_id);const tName=tn?tn.name:ci.tenant_id;if(!byTenant[tName])byTenant[tName]=[];byTenant[tName].push(ci)});
+  let html=`<div class="sr"><span class="sl">Total Instances: <span class="sv">${cis.length}</span></span><span class="sl">Active: <span class="sv gn">${cis.filter(c=>c.status==='active').length}</span></span></div>`;
+  for(const [tName,instances] of Object.entries(byTenant)){
+    html+=`<div class="sbox" style="margin-bottom:16px"><h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px">${tName}</h3>`;
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">`;
+    instances.forEach(ci=>{
+      const icon=CH_ICONS[ci.channel_type]||'📡';
+      const color=CH_COLORS[ci.channel_type]||'var(--o)';
+      const hasToken=ci.config&&ci.config.bot_token;
+      html+=`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg);position:relative;border-left:3px solid ${color}">`;
+      html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font-size:1.5rem">${icon}</span><div><div style="font-weight:600;font-size:.9rem">${ci.display_name}</div><div style="font-size:.75rem;color:var(--d);text-transform:capitalize">${ci.channel_type}</div></div><div style="margin-left:auto">${statusBadge(ci.status)}</div></div>`;
+      html+=`<div style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--d);margin-bottom:10px">`;
+      html+=`<div>Messages: <b style="color:var(--t)">${ci.message_count||0}</b></div>`;
+      html+=`<div>Last: ${ci.last_message_at?fmtDate(ci.last_message_at):'Never'}</div>`;
+      html+=`<div style="font-family:monospace;font-size:.7rem">Webhook: <code>${ci.webhook_path}</code></div>`;
+      html+=`</div>`;
+      html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+      if(ci.channel_type==='telegram'){
+        html+=`<button class="btn-g" style="font-size:.75rem;padding:4px 10px" onclick="testChannelInstance('${ci.id}')">🔍 Test</button>`;
+        html+=`<button class="btn-g" style="font-size:.75rem;padding:4px 10px" onclick="setChannelWebhook('${ci.id}')">🔗 Set Webhook</button>`;
+      }
+      html+=`<button class="btn-g" style="font-size:.75rem;padding:4px 10px" onclick="configChannelInstance('${ci.id}')">⚙️ Config</button>`;
+      html+=`<button class="btn-r" style="font-size:.75rem" onclick="deleteChannelInstance('${ci.id}','${ci.display_name.replace(/'/g,"\\'")}')">Delete</button>`;
+      html+=`</div></div>`;
+    });
+    html+=`</div></div>`;
+  }
+  document.getElementById('mainContent').innerHTML=html;
+}
+
+function openAddChannelInstanceModal(){
+  const sel=document.getElementById('ciTenant');
+  sel.innerHTML=T.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  document.getElementById('ciName').value='';
+  document.getElementById('ciToken').value='';
+  openModal('addChannelInstanceModal');
+}
+
+async function doAddChannelInstance(){
+  const tenantId=document.getElementById('ciTenant').value;
+  const type=document.getElementById('ciType').value;
+  const name=document.getElementById('ciName').value.trim();
+  const token=document.getElementById('ciToken').value.trim();
+  if(!name){alert('Display name is required');return}
+  const config={};
+  if(type==='telegram'&&token)config.bot_token=token;
+  const d=await api('POST','/api/portal/channel-instances',{tenant_id:tenantId,channel_type:type,display_name:name,config});
+  if(d.ok){
+    closeModal('addChannelInstanceModal');
+    renderChannelInstances();
+    if(type==='telegram'&&token){
+      // Auto-test after creation
+      setTimeout(()=>testChannelInstance(d.id),500);
+    }
+  } else alert(d.error||'Failed');
+}
+
+async function testChannelInstance(id){
+  const d=await api('POST','/api/portal/channel-instances/'+id+'/test');
+  if(d.ok){
+    const info=d.bot_info||{};
+    alert('✅ Bot verified!\n\nName: '+( info.first_name||'-')+'\nUsername: @'+(info.username||'-'));
+    renderChannelInstances();
+  } else alert('❌ Test failed: '+(d.error||'Unknown error'));
+}
+
+async function setChannelWebhook(id){
+  const baseUrl=prompt('Enter your Portal public URL (e.g. https://portal.openfang.com.vn):',location.origin);
+  if(!baseUrl)return;
+  const d=await api('POST','/api/portal/channel-instances/'+id+'/webhook',{base_url:baseUrl});
+  if(d.ok){
+    alert('✅ Webhook set!\n\nURL: '+d.webhook_url);
+    renderChannelInstances();
+  } else alert('❌ Failed: '+(d.error||'Unknown'));
+}
+
+async function configChannelInstance(id){
+  const d=await api('GET','/api/portal/channel-instances/'+id);
+  if(d.error){alert(d.error);return}
+  const cfg=d.config||{};
+  const token=prompt('Bot Token:',cfg.bot_token||'');
+  if(token===null)return;
+  const upd=await api('PUT','/api/portal/channel-instances/'+id,{config:{bot_token:token}});
+  if(upd.ok){renderChannelInstances()}else{alert(upd.error||'Failed')}
+}
+
+async function deleteChannelInstance(id,name){
+  if(!confirm('Delete channel "'+name+'"? The webhook will be removed from Telegram.'))return;
+  const d=await api('DELETE','/api/portal/channel-instances/'+id);
+  if(d.ok)renderChannelInstances();else alert(d.error||'Failed');
+}
 
 // Init + Permalink
 window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});

@@ -999,3 +999,354 @@ pub async fn portal_system_test(State(state): State<Arc<PortalState>>) -> impl I
         }
     }
 }
+
+// ─── Independent Channel Instances (Multi-Channel Support) ───────────────────
+
+/// List all channel instances, optionally filtered by tenant_id
+pub async fn channel_instance_list(
+    State(state): State<Arc<PortalState>>,
+    headers: axum::http::HeaderMap,
+    query: axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data = load_data(&state);
+    let instances: Vec<&ChannelInstance> = if let Some(tid) = query.get("tenant_id") {
+        if !is_admin_or_owner(&session, &data, tid) {
+            return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+        }
+        data.channel_instances.iter().filter(|c| c.tenant_id == *tid).collect()
+    } else if session.role == "admin" {
+        data.channel_instances.iter().collect()
+    } else {
+        // Return only instances for tenants user owns
+        let user_tenant_ids: Vec<&str> = data.tenants.iter()
+            .filter(|t| t.members.iter().any(|m| m.email.to_lowercase() == session.email.to_lowercase()))
+            .map(|t| t.id.as_str()).collect();
+        data.channel_instances.iter().filter(|c| user_tenant_ids.contains(&c.tenant_id.as_str())).collect()
+    };
+    Json(serde_json::json!({"channel_instances": instances})).into_response()
+}
+
+/// Create a new channel instance
+pub async fn channel_instance_create(
+    State(state): State<Arc<PortalState>>,
+    headers: axum::http::HeaderMap,
+    Json(req): Json<CreateChannelInstanceRequest>,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data_check = load_data(&state);
+    if !is_admin_or_owner(&session, &data_check, &req.tenant_id) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Admin or Owner access required"}))).into_response();
+    }
+    if req.display_name.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"Display name is required"}))).into_response();
+    }
+    let valid_types = ["telegram", "zalo", "discord", "slack", "whatsapp", "facebook", "email", "web"];
+    if !valid_types.contains(&req.channel_type.as_str()) {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":format!("Invalid channel type. Supported: {:?}", valid_types)}))).into_response();
+    }
+
+    let mut data = load_data(&state);
+    let id = uuid::Uuid::new_v4().to_string();
+    let webhook_path = format!("/webhook/ch/{}", &id[..8]);
+    let instance = ChannelInstance {
+        id: id.clone(),
+        tenant_id: req.tenant_id.clone(),
+        channel_type: req.channel_type.clone(),
+        display_name: req.display_name.trim().to_string(),
+        enabled: true,
+        config: req.config.unwrap_or(serde_json::json!({})),
+        webhook_path: webhook_path.clone(),
+        created_at: now_iso(),
+        last_message_at: None,
+        message_count: 0,
+        status: ChannelInstanceStatus::Pending,
+    };
+    data.channel_instances.push(instance);
+    let _ = save_data(&state, &data);
+    info!(id = %id, tenant = %req.tenant_id, channel_type = %req.channel_type, "Created channel instance");
+    Json(serde_json::json!({"ok":true, "id": id, "webhook_path": webhook_path})).into_response()
+}
+
+/// Get channel instance detail
+pub async fn channel_instance_detail(
+    State(state): State<Arc<PortalState>>,
+    Path(id): Path<String>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data = load_data(&state);
+    let instance = match data.channel_instances.iter().find(|c| c.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel instance not found"}))).into_response(),
+    };
+    if !is_admin_or_owner(&session, &data, &instance.tenant_id) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+    }
+    Json(serde_json::json!(instance)).into_response()
+}
+
+/// Update a channel instance (display_name, enabled, config)
+pub async fn channel_instance_update(
+    State(state): State<Arc<PortalState>>,
+    Path(id): Path<String>,
+    headers: axum::http::HeaderMap,
+    Json(req): Json<UpdateChannelInstanceRequest>,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let mut data = load_data(&state);
+    let instance = match data.channel_instances.iter_mut().find(|c| c.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel instance not found"}))).into_response(),
+    };
+    if !is_admin_or_owner(&session, &load_data(&state), &instance.tenant_id) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+    }
+    if let Some(name) = req.display_name { instance.display_name = name; }
+    if let Some(enabled) = req.enabled { instance.enabled = enabled; }
+    if let Some(config) = req.config {
+        if let (Some(existing), Some(new_obj)) = (instance.config.as_object_mut(), config.as_object()) {
+            for (k, v) in new_obj { existing.insert(k.clone(), v.clone()); }
+        } else {
+            instance.config = config;
+        }
+    }
+    let _ = save_data(&state, &data);
+    info!(id = %id, "Updated channel instance");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
+/// Delete a channel instance
+pub async fn channel_instance_delete(
+    State(state): State<Arc<PortalState>>,
+    Path(id): Path<String>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let mut data = load_data(&state);
+    let tenant_id = match data.channel_instances.iter().find(|c| c.id == id) {
+        Some(c) => c.tenant_id.clone(),
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel instance not found"}))).into_response(),
+    };
+    if !is_admin_or_owner(&session, &data, &tenant_id) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+    }
+
+    // If Telegram, delete webhook before removing
+    let instance = data.channel_instances.iter().find(|c| c.id == id).unwrap();
+    if instance.channel_type == "telegram" {
+        if let Some(token) = instance.config.get("bot_token").and_then(|v| v.as_str()) {
+            let _ = crate::channels::telegram::delete_webhook(token).await;
+        }
+    }
+
+    data.channel_instances.retain(|c| c.id != id);
+    let _ = save_data(&state, &data);
+    info!(id = %id, "Deleted channel instance");
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
+/// Test channel instance connectivity (verify bot token, etc.)
+pub async fn channel_instance_test(
+    State(state): State<Arc<PortalState>>,
+    Path(id): Path<String>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data = load_data(&state);
+    let instance = match data.channel_instances.iter().find(|c| c.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel instance not found"}))).into_response(),
+    };
+    if !is_admin_or_owner(&session, &data, &instance.tenant_id) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+    }
+
+    match instance.channel_type.as_str() {
+        "telegram" => {
+            let token = match instance.config.get("bot_token").and_then(|v| v.as_str()) {
+                Some(t) => t,
+                None => return Json(serde_json::json!({"ok":false, "error":"Missing bot_token in config"})).into_response(),
+            };
+            match crate::channels::telegram::get_bot_info(token).await {
+                Ok(bot_info) => {
+                    // Auto-update status to active
+                    let mut data = load_data(&state);
+                    if let Some(inst) = data.channel_instances.iter_mut().find(|c| c.id == id) {
+                        inst.status = ChannelInstanceStatus::Active;
+                        let _ = save_data(&state, &data);
+                    }
+                    Json(serde_json::json!({"ok":true, "bot_info": bot_info, "status": "active"})).into_response()
+                }
+                Err(e) => {
+                    let mut data = load_data(&state);
+                    if let Some(inst) = data.channel_instances.iter_mut().find(|c| c.id == id) {
+                        inst.status = ChannelInstanceStatus::Error;
+                        let _ = save_data(&state, &data);
+                    }
+                    Json(serde_json::json!({"ok":false, "error": e, "status": "error"})).into_response()
+                }
+            }
+        }
+        _ => Json(serde_json::json!({"ok":false, "error": format!("Test not implemented for channel type: {}", instance.channel_type)})).into_response(),
+    }
+}
+
+/// Set webhook URL for a channel instance (Telegram: calls setWebhook)
+pub async fn channel_instance_set_webhook(
+    State(state): State<Arc<PortalState>>,
+    Path(id): Path<String>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let session = match extract_session(&headers) { Some(s) => s, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response() };
+    let data = load_data(&state);
+    let instance = match data.channel_instances.iter().find(|c| c.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel instance not found"}))).into_response(),
+    };
+    if !is_admin_or_owner(&session, &data, &instance.tenant_id) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error":"Access denied"}))).into_response();
+    }
+
+    // The base_url comes from the request body or we auto-detect it
+    let base_url = body.get("base_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if base_url.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"base_url is required (e.g. https://portal.example.com)"}))).into_response();
+    }
+
+    match instance.channel_type.as_str() {
+        "telegram" => {
+            let token = match instance.config.get("bot_token").and_then(|v| v.as_str()) {
+                Some(t) => t,
+                None => return Json(serde_json::json!({"ok":false, "error":"Missing bot_token in config"})).into_response(),
+            };
+            let webhook_url = format!("{}{}", base_url.trim_end_matches('/'), instance.webhook_path);
+            match crate::channels::telegram::set_webhook(token, &webhook_url).await {
+                Ok(()) => {
+                    let mut data = load_data(&state);
+                    if let Some(inst) = data.channel_instances.iter_mut().find(|c| c.id == id) {
+                        inst.status = ChannelInstanceStatus::Active;
+                        let _ = save_data(&state, &data);
+                    }
+                    Json(serde_json::json!({"ok":true, "webhook_url": webhook_url})).into_response()
+                }
+                Err(e) => Json(serde_json::json!({"ok":false, "error": e})).into_response(),
+            }
+        }
+        _ => Json(serde_json::json!({"ok":false, "error": "Webhook not supported for this channel type yet"})).into_response(),
+    }
+}
+
+// ─── Webhook Receivers (incoming messages from channels) ─────────────────────
+
+/// Handle incoming webhook from any channel (POST /webhook/ch/{id})
+pub async fn channel_webhook_receive(
+    State(state): State<Arc<PortalState>>,
+    Path(short_id): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let data = load_data(&state);
+    let webhook_path = format!("/webhook/ch/{}", short_id);
+
+    let instance = match data.channel_instances.iter().find(|c| c.webhook_path == webhook_path && c.enabled) {
+        Some(c) => c.clone(),
+        None => {
+            warn!(webhook_path = %webhook_path, "Webhook received for unknown channel instance");
+            return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Unknown channel"}))).into_response();
+        }
+    };
+
+    let tenant = match data.tenants.iter().find(|t| t.id == instance.tenant_id) {
+        Some(t) => t.clone(),
+        None => {
+            warn!(tenant_id = %instance.tenant_id, "Webhook: tenant not found for channel instance");
+            return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response();
+        }
+    };
+
+    info!(channel_id = %instance.id, channel_type = %instance.channel_type, tenant = %tenant.name, "Webhook received");
+
+    match instance.channel_type.as_str() {
+        "telegram" => {
+            let msg = match crate::channels::telegram::parse_webhook(&body) {
+                Some(m) => m,
+                None => {
+                    // Telegram sends various update types (inline, callback, etc.) — ignore non-text
+                    return Json(serde_json::json!({"ok":true, "skipped":true})).into_response();
+                }
+            };
+
+            info!(sender = %msg.sender_id, text_len = msg.text.len(), "Telegram message from: {}", msg.sender_name.as_deref().unwrap_or("?"));
+
+            // Route to OpenFang Agent
+            let agent_name = tenant.agent_name.clone().unwrap_or_else(|| format!("portal-{}", tenant.slug));
+            let client = reqwest::Client::new();
+            let auth = if !state.openfang_api_key.is_empty() { Some(format!("Bearer {}", state.openfang_api_key)) } else { None };
+
+            // Find agent ID
+            let list_url = format!("{}/api/agents", state.openfang_api_url);
+            let mut list_req = client.get(&list_url);
+            if let Some(ref a) = auth { list_req = list_req.header("Authorization", a.clone()); }
+            let agent_id = match list_req.send().await {
+                Ok(resp) => {
+                    let agents: Vec<serde_json::Value> = resp.json().await.unwrap_or_default();
+                    agents.iter().find(|a| a.get("name").and_then(|n| n.as_str()) == Some(&agent_name))
+                        .and_then(|a| a.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
+                }
+                Err(_) => None,
+            };
+
+            let agent_id = match agent_id {
+                Some(id) => id,
+                None => {
+                    warn!(agent_name = %agent_name, "Agent not deployed, cannot process webhook message");
+                    // Reply on Telegram that agent is not ready
+                    let _ = crate::channels::telegram::send_reply(&instance.config, &msg.chat_id, "⚠️ Agent chưa được deploy. Vui lòng liên hệ admin.").await;
+                    return Json(serde_json::json!({"ok":true, "error":"Agent not deployed"})).into_response();
+                }
+            };
+
+            // Send message to agent
+            let msg_url = format!("{}/api/agents/{}/message", state.openfang_api_url, agent_id);
+            let mut msg_req = client.post(&msg_url).json(&serde_json::json!({"message": msg.text}));
+            if let Some(ref a) = auth { msg_req = msg_req.header("Authorization", a.clone()); }
+
+            let response_text = match msg_req.send().await {
+                Ok(resp) => {
+                    let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                    body.get("response").and_then(|v| v.as_str()).unwrap_or("(no response)").to_string()
+                }
+                Err(e) => format!("❌ Lỗi kết nối: {}", e),
+            };
+
+            // Send reply back to Telegram
+            let result = crate::channels::telegram::send_reply(&instance.config, &msg.chat_id, &response_text).await;
+
+            // Update message count
+            let mut data = load_data(&state);
+            if let Some(inst) = data.channel_instances.iter_mut().find(|c| c.id == instance.id) {
+                inst.message_count += 1;
+                inst.last_message_at = Some(now_iso());
+            }
+            let _ = save_data(&state, &data);
+
+            if result.success {
+                Json(serde_json::json!({"ok":true})).into_response()
+            } else {
+                Json(serde_json::json!({"ok":false, "error": result.error})).into_response()
+            }
+        }
+        _ => {
+            Json(serde_json::json!({"ok":false, "error": format!("Channel type {} not yet supported", instance.channel_type)})).into_response()
+        }
+    }
+}
+
+/// Handle webhook verification (GET /webhook/ch/{id}) — needed by some platforms
+pub async fn channel_webhook_verify(
+    Path(short_id): Path<String>,
+) -> impl IntoResponse {
+    // Telegram doesn't need GET verification, but we return OK for health checks
+    Json(serde_json::json!({"ok":true, "channel_id": short_id})).into_response()
+}
