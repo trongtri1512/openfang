@@ -110,6 +110,10 @@ async fn main() {
         // Diagnostic: test OpenFang API connectivity
         .route("/api/portal/system/test", axum::routing::get(handlers::portal_system_test))
         // Independent Channel Instances (multi-channel support)
+        // Multi-Agent per Tenant
+        .route("/api/portal/agents", axum::routing::get(handlers::portal_agents_list).post(handlers::portal_agent_create))
+        .route("/api/portal/agents/:id", axum::routing::put(handlers::portal_agent_update).delete(handlers::portal_agent_delete))
+        .route("/api/portal/channel-instances/:id/assign-agent", axum::routing::post(handlers::portal_channel_assign_agent))
         .route("/api/portal/channel-instances", axum::routing::get(handlers::channel_instance_list).post(handlers::channel_instance_create))
         .route("/api/portal/channel-instances/{id}", axum::routing::get(handlers::channel_instance_detail).put(handlers::channel_instance_update).delete(handlers::channel_instance_delete))
         .route("/api/portal/channel-instances/{id}/test", axum::routing::post(handlers::channel_instance_test))

@@ -61,6 +61,35 @@ pub struct TenantChannel {
     pub added_at: String,
 }
 
+/// An AI Agent within a tenant — supports multi-agent per tenant.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TenantAgent {
+    pub id: String,
+    pub tenant_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub role: String,
+    #[serde(default)]
+    pub icon: String,
+    #[serde(default)]
+    pub system_prompt: String,
+    #[serde(default)]
+    pub provider: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub temperature: f64,
+    #[serde(default)]
+    pub skills: Vec<String>,
+    #[serde(default)]
+    pub hands: Vec<String>,
+    #[serde(default)]
+    pub tools: Vec<String>,
+    #[serde(default)]
+    pub enabled: bool,
+    pub created_at: String,
+}
+
 /// An independent channel instance managed by Portal (not OpenFang).
 /// Allows multiple instances of the same channel type (e.g., 3 Telegram bots).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +108,8 @@ pub struct ChannelInstance {
     pub message_count: u64,
     #[serde(default)]
     pub status: ChannelInstanceStatus,
+    #[serde(default)]
+    pub agent_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -364,6 +395,8 @@ pub struct PortalData {
     pub activity: Vec<ActivityEvent>,
     #[serde(default)]
     pub api_keys: Vec<PortalApiKey>,
+    #[serde(default)]
+    pub agents: Vec<TenantAgent>,
 }
 
 // ---------------------------------------------------------------------------

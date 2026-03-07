@@ -203,6 +203,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
         <div class="sb-label">Channels</div>
         <a class="si" onclick="showPage('channel-instances')" id="channelInstancesNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Multi Channels</a>
         <div class="sb-label">Agent Features</div>
+        <a class="si" onclick="showPage('agents')" id="agentsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Agents</a>
         <a class="si" onclick="showPage('knowledge')" id="knowledgeNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Kho tri thức</a>
         <a class="si" onclick="showPage('tools')" id="toolsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>Công cụ</a>
         <a class="si" onclick="showPage('skills')" id="skillsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Skills Market</a>
@@ -382,6 +383,7 @@ else if(p==='users'){document.getElementById('usersNav').classList.add('active')
 else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}
 else if(p==='workflows'){document.getElementById('workflowsNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Workflows';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createWorkflowModal\")">+ Create Workflow</button>';renderWorkflows()}
 else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Job</button>';renderScheduler()}
+else if(p==='agents'){document.getElementById('agentsNav').classList.add('active');document.getElementById('pageTitle').textContent='🤖 Agents';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openCreateAgentModal()">+ Tạo Agent</button>';renderAgentsList()}
 else if(p==='knowledge'){document.getElementById('knowledgeNav').classList.add('active');document.getElementById('pageTitle').textContent='📚 Kho tri thức';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openKnowledgeUpload()">📎 Upload File</button>';renderKnowledge()}
 else if(p==='tools'){document.getElementById('toolsNav').classList.add('active');document.getElementById('pageTitle').textContent='🛠️ Công cụ';renderTools()}
 else if(p==='skills'){document.getElementById('skillsNav').classList.add('active');document.getElementById('pageTitle').textContent='🎯 Skills Market';renderSkills()}
@@ -1034,6 +1036,83 @@ async function deleteChannelInstance(id,name){
   if(d.ok)renderChannelInstances();else alert(d.error||'Failed');
 }
 
+// ─── Multi-Agent Management ──────────────────────────────────────────────────
+let _currentAgentsTenantId = '';
+async function renderAgentsList(){
+  const data = await api('GET','/api/portal/tenants');
+  const tenants = data.tenants || [];
+  if(tenants.length === 0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><h3 style="color:var(--d)">Chưa có tenant</h3><p style="color:var(--m);font-size:.85rem">Tạo tenant trước khi thêm agents.</p></div>`;return}
+
+  // Tenant selector
+  if(!_currentAgentsTenantId) _currentAgentsTenantId = tenants[0].id;
+  const select = tenants.map(t=>`<option value="${t.id}" ${t.id===_currentAgentsTenantId?'selected':''}>${t.name}</option>`).join('');
+
+  // Load agents for selected tenant
+  const agentData = await api('GET','/api/portal/agents?tenant_id='+_currentAgentsTenantId);
+  const agents = agentData.agents || [];
+
+  // Load channels for assignment display
+  const chData = await api('GET','/api/portal/channel-instances?tenant_id='+_currentAgentsTenantId);
+  const channels = (chData.instances || []).filter(c=>c.tenant_id===_currentAgentsTenantId);
+
+  const cards = agents.map(a=>{
+    const linkedChs = channels.filter(c=>c.agent_id===a.id);
+    const chBadges = linkedChs.map(c=>`<span class="badge running" style="font-size:.65rem">${c.display_name}</span>`).join(' ');
+    return `<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:2rem">${a.icon||'🤖'}</span>
+        <div>
+          <div style="font-weight:600">${a.name}</div>
+          <div style="font-size:.7rem;color:var(--d)">${a.role||'assistant'} • ${a.model||'-'}</div>
+        </div>
+        <span class="badge ${a.enabled?'running':'stopped'}" style="margin-left:auto">${a.enabled?'Active':'Off'}</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--d);margin-bottom:6px">Skills: ${(a.skills||[]).join(', ')||'none'}</div>
+      <div style="font-size:.75rem;color:var(--d);margin-bottom:8px">Channels: ${chBadges||'<span style=\"color:var(--m)\">unlinked</span>'}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-g" style="font-size:.75rem" onclick="editAgent('${a.id}')">✏️ Edit</button>
+        <button class="btn-r" style="font-size:.75rem" onclick="deleteAgent('${a.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const noAgentMsg = agents.length===0?`<div class="sbox" style="text-align:center;padding:32px"><div style="font-size:2rem;margin-bottom:8px">🤖</div><p style="color:var(--d);font-size:.85rem">Chưa có agent. Bấm "+ Tạo Agent" để thêm.</p></div>`:'';
+
+  document.getElementById('mainContent').innerHTML=`
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
+      <label style="font-weight:600;font-size:.85rem">Tenant:</label>
+      <select onchange="_currentAgentsTenantId=this.value;renderAgentsList()" style="padding:6px 12px;border:1px solid var(--b);border-radius:8px;background:var(--bg);color:var(--t);font-size:.85rem">${select}</select>
+      <span class="sl">Agents: <span class="sv">${agents.length}</span></span>
+    </div>
+    ${noAgentMsg}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">${cards}</div>`;
+}
+
+function openCreateAgentModal(){
+  const name=prompt('Tên Agent:');if(!name)return;
+  const role=prompt('Vai trò (assistant, sales, support, analyst):','assistant')||'assistant';
+  api('POST','/api/portal/agents',{tenant_id:_currentAgentsTenantId,name,role}).then(d=>{
+    if(d.ok)renderAgentsList();else alert(d.error||'Failed');
+  });
+}
+
+async function editAgent(id){
+  const agentData = await api('GET','/api/portal/agents?tenant_id='+_currentAgentsTenantId);
+  const agent = (agentData.agents||[]).find(a=>a.id===id);
+  if(!agent)return alert('Agent not found');
+  const name=prompt('Tên Agent:',agent.name);if(!name)return;
+  const role=prompt('Vai trò:',agent.role)||agent.role;
+  const prompt_text=prompt('System Prompt:',agent.system_prompt)||agent.system_prompt;
+  await api('PUT','/api/portal/agents/'+id,{name,role,system_prompt:prompt_text});
+  renderAgentsList();
+}
+
+async function deleteAgent(id){
+  if(!confirm('Xoá agent này? Channels liên kết sẽ bị unlink.'))return;
+  await api('DELETE','/api/portal/agents/'+id);
+  renderAgentsList();
+}
+
 // ─── Knowledge Base (RAG) ────────────────────────────────────────────────────
 async function renderKnowledge(){
   const d=await api('GET','/api/portal/knowledge');
@@ -1085,10 +1164,16 @@ async function renderOrchestration(){
 // ─── Org Map ─────────────────────────────────────────────────────────────────
 async function renderOrgMap(){
   const d=await api('GET','/api/portal/orgmap');
-  const nodes=d.nodes||d.agents||[];
-  if(nodes.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🗺️</div><h3 style="color:var(--d)">Org Map</h3><p style="color:var(--m);font-size:.85rem">Sơ đồ tổ chức Agent. Deploy agents để xem hierarchy.</p></div>`;return}
-  const cards=nodes.map(n=>`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg);text-align:center"><div style="font-size:2rem">${n.icon||'🤖'}</div><div style="font-weight:600;margin-top:4px">${n.name||n.id||'-'}</div><div style="font-size:.75rem;color:var(--d)">${n.role||n.type||'agent'}</div></div>`).join('');
-  document.getElementById('mainContent').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">${cards}</div>`;
+  const nodes=d.nodes||[];
+  if(nodes.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🗺️</div><h3 style="color:var(--d)">Org Map</h3><p style="color:var(--m);font-size:.85rem">Sơ đồ tổ chức Agent. Tạo tenants & agents để xem hierarchy.</p></div>`;return}
+  const tenants=nodes.filter(n=>n.type==='tenant');
+  let html='';
+  tenants.forEach(t=>{
+    const agents=nodes.filter(n=>n.type==='agent'&&n.parent===t.id);
+    const agentCards=agents.map(a=>`<div style="border:1px solid var(--b);border-radius:10px;padding:12px;background:var(--bg);text-align:center;min-width:120px"><div style="font-size:1.5rem">${a.icon||'🤖'}</div><div style="font-weight:600;font-size:.8rem;margin-top:2px">${a.name}</div><div style="font-size:.65rem;color:var(--d)">${a.role||'agent'}</div></div>`).join('');
+    html+=`<div class="sbox" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="font-size:1.5rem">${t.icon||'🏢'}</span><div><div style="font-weight:700">${t.name}</div><div style="font-size:.7rem;color:var(--d)">Status: ${t.role}</div></div></div><div style="border-left:2px solid var(--o);margin-left:20px;padding-left:16px"><div style="display:flex;flex-wrap:wrap;gap:10px">${agentCards}</div></div></div>`;
+  });
+  document.getElementById('mainContent').innerHTML=html;
 }
 
 // ─── Kanban ──────────────────────────────────────────────────────────────────

@@ -1369,6 +1369,102 @@ pub async fn channel_webhook_verify(
     Json(serde_json::json!({"ok":true, "channel_id": short_id})).into_response()
 }
 
+// ─── Multi-Agent per Tenant ──────────────────────────────────────────────────
+
+use crate::models::TenantAgent;
+
+/// List agents for a given tenant.
+pub async fn portal_agents_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, query: axum::extract::Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let tenant_id = query.get("tenant_id").cloned().unwrap_or_default();
+    let data = load_data(&state);
+    let agents: Vec<&TenantAgent> = data.agents.iter().filter(|a| a.tenant_id == tenant_id).collect();
+    Json(serde_json::json!({"agents": agents})).into_response()
+}
+
+/// Create a new agent for a tenant.
+pub async fn portal_agent_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let tenant_id = body["tenant_id"].as_str().unwrap_or("").to_string();
+    let name = body["name"].as_str().unwrap_or("New Agent").to_string();
+    if tenant_id.is_empty() { return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"tenant_id required"}))).into_response(); }
+    let data_check = load_data(&state);
+    if !data_check.tenants.iter().any(|t| t.id == tenant_id) { return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tenant not found"}))).into_response(); }
+    // Use tenant defaults or body overrides
+    let tenant = data_check.tenants.iter().find(|t| t.id == tenant_id).unwrap();
+    let agent = TenantAgent {
+        id: uuid::Uuid::new_v4().to_string(),
+        tenant_id: tenant_id.clone(),
+        name,
+        role: body["role"].as_str().unwrap_or("assistant").to_string(),
+        icon: body["icon"].as_str().unwrap_or("🤖").to_string(),
+        system_prompt: body["system_prompt"].as_str().unwrap_or(&tenant.system_prompt).to_string(),
+        provider: body["provider"].as_str().unwrap_or(&tenant.provider).to_string(),
+        model: body["model"].as_str().unwrap_or(&tenant.model).to_string(),
+        temperature: body["temperature"].as_f64().unwrap_or(tenant.temperature),
+        skills: body["skills"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()).unwrap_or_else(|| tenant.skills.clone()),
+        hands: body["hands"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()).unwrap_or_else(|| tenant.hands.clone()),
+        tools: body["tools"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()).unwrap_or_default(),
+        enabled: true,
+        created_at: crate::models::now_iso(),
+    };
+    let id = agent.id.clone();
+    let mut data = load_data(&state);
+    data.agents.push(agent);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true, "id": id})).into_response()
+}
+
+/// Update an existing agent.
+pub async fn portal_agent_update(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    if let Some(agent) = data.agents.iter_mut().find(|a| a.id == id) {
+        if let Some(v) = body["name"].as_str() { agent.name = v.to_string(); }
+        if let Some(v) = body["role"].as_str() { agent.role = v.to_string(); }
+        if let Some(v) = body["icon"].as_str() { agent.icon = v.to_string(); }
+        if let Some(v) = body["system_prompt"].as_str() { agent.system_prompt = v.to_string(); }
+        if let Some(v) = body["provider"].as_str() { agent.provider = v.to_string(); }
+        if let Some(v) = body["model"].as_str() { agent.model = v.to_string(); }
+        if let Some(v) = body["temperature"].as_f64() { agent.temperature = v; }
+        if let Some(v) = body["skills"].as_array() { agent.skills = v.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect(); }
+        if let Some(v) = body["hands"].as_array() { agent.hands = v.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect(); }
+        if let Some(v) = body["tools"].as_array() { agent.tools = v.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect(); }
+        if let Some(v) = body["enabled"].as_bool() { agent.enabled = v; }
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok":true})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Agent not found"}))).into_response()
+    }
+}
+
+/// Delete an agent.
+pub async fn portal_agent_delete(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let mut data = load_data(&state);
+    // Unlink channels pointing to this agent
+    for ch in data.channel_instances.iter_mut() {
+        if ch.agent_id.as_deref() == Some(&id) { ch.agent_id = None; }
+    }
+    data.agents.retain(|a| a.id != id);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
+/// Assign a channel instance to an agent.
+pub async fn portal_channel_assign_agent(State(state): State<Arc<PortalState>>, Path(channel_id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let agent_id = body["agent_id"].as_str().map(|s| s.to_string());
+    let mut data = load_data(&state);
+    if let Some(ch) = data.channel_instances.iter_mut().find(|c| c.id == channel_id) {
+        ch.agent_id = agent_id.clone();
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok":true, "agent_id": agent_id})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Channel not found"}))).into_response()
+    }
+}
+
 // ─── Independent Portal Features (local data, no OpenFang dependency) ────────
 
 use crate::models::{KnowledgeDoc, PortalTool, PortalSkill, AgentTemplate, Delegation, PortalApiKey};
@@ -1586,14 +1682,26 @@ pub async fn portal_usage(State(state): State<Arc<PortalState>>, headers: axum::
     })).into_response()
 }
 
-// ─── Org Map (computed from tenants) ─────────────────────────────────────────
+// ─── Org Map (computed from tenants + agents) ────────────────────────────────
 
 pub async fn portal_orgmap(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     let data = load_data(&state);
-    let nodes: Vec<serde_json::Value> = data.tenants.iter().map(|t| {
-        serde_json::json!({"id": t.id, "name": t.agent_name.as_deref().unwrap_or(&t.name), "icon": "🤖", "role": format!("{}", t.status), "type": "agent"})
-    }).collect();
+    let mut nodes: Vec<serde_json::Value> = Vec::new();
+    for t in &data.tenants {
+        // Tenant node
+        nodes.push(serde_json::json!({"id": t.id, "name": t.name, "icon": "🏢", "role": format!("{}", t.status), "type": "tenant"}));
+        // Agent nodes under this tenant
+        let tenant_agents: Vec<&TenantAgent> = data.agents.iter().filter(|a| a.tenant_id == t.id).collect();
+        if tenant_agents.is_empty() {
+            // Show default agent from tenant config
+            nodes.push(serde_json::json!({"id": format!("{}-default", t.id), "name": t.agent_name.as_deref().unwrap_or("Default Agent"), "icon": "🤖", "role": "default", "type": "agent", "parent": t.id}));
+        } else {
+            for a in tenant_agents {
+                nodes.push(serde_json::json!({"id": a.id, "name": a.name, "icon": a.icon, "role": a.role, "type": "agent", "parent": t.id, "enabled": a.enabled}));
+            }
+        }
+    }
     Json(serde_json::json!({"nodes": nodes})).into_response()
 }
 
