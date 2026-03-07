@@ -817,21 +817,25 @@ pub async fn portal_system_hands(State(state): State<Arc<PortalState>>, headers:
 }
 
 // ─── Scheduler (Cron Jobs) ────────────────────────────────────────────────────
+#[allow(dead_code)]
 pub async fn portal_list_cron_jobs(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_get(&state, "/api/schedules").await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_create_cron_job(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_post(&state, "/api/schedules", body).await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_toggle_cron_job(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Path(id): Path<String>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_put(&state, &format!("/api/schedules/{}", id), body).await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_delete_cron_job(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Path(id): Path<String>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_delete(&state, &format!("/api/schedules/{}", id)).await.into_response()
@@ -941,6 +945,7 @@ pub async fn portal_system_provider_test(State(state): State<Arc<PortalState>>, 
     proxy_post(&state, &format!("/api/providers/{}/test", name), serde_json::json!({})).await.into_response()
 }
 
+#[allow(dead_code)]
 async fn proxy_put(state: &PortalState, path: &str, body: serde_json::Value) -> impl IntoResponse {
     let url = format!("{}{}", state.openfang_api_url, path);
     let client = reqwest::Client::new();
@@ -959,26 +964,31 @@ async fn proxy_put(state: &PortalState, path: &str, body: serde_json::Value) -> 
 
 // ─── Workflows (proxy to OpenFang) ───────────────────────────────────────────
 
+#[allow(dead_code)]
 pub async fn portal_list_workflows(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_get(&state, "/api/workflows").await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_create_workflow(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_post(&state, "/api/workflows", body).await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_run_workflow(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_post(&state, &format!("/api/workflows/{}/run", id), body).await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_workflow_runs(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_get(&state, &format!("/api/workflows/{}/runs", id)).await.into_response()
 }
 
+#[allow(dead_code)]
 pub async fn portal_delete_workflow(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     proxy_delete(&state, &format!("/api/workflows/{}", id)).await.into_response()

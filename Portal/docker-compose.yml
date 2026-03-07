@@ -2,7 +2,7 @@
 # Run: docker compose up --build -d
 # Access: http://localhost:4201/ or via reverse proxy at portal.openfangcom.vn
 
-version: "3.8"
+
 services:
   portal-db:
     image: postgres:16-alpine
