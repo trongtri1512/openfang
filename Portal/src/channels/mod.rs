@@ -13,6 +13,7 @@ pub struct IncomingMessage {
     /// The text message content
     pub text: String,
     /// Original platform-specific message ID
+    #[allow(dead_code)]
     pub platform_message_id: Option<String>,
     /// Chat/conversation ID on the platform
     pub chat_id: String,
@@ -22,6 +23,7 @@ pub struct IncomingMessage {
 #[derive(Debug)]
 pub struct SendResult {
     pub success: bool,
+    #[allow(dead_code)]
     pub platform_message_id: Option<String>,
     pub error: Option<String>,
 }

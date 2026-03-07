@@ -1371,7 +1371,7 @@ pub async fn channel_webhook_verify(
 
 // ─── Independent Portal Features (local data, no OpenFang dependency) ────────
 
-use crate::models::{KnowledgeDoc, PortalTool, PortalSkill, AgentTemplate, Delegation, KanbanTask, LlmTrace, ActivityEvent, PortalApiKey};
+use crate::models::{KnowledgeDoc, PortalTool, PortalSkill, AgentTemplate, Delegation, PortalApiKey};
 
 /// Seed default tools if empty.
 fn seed_tools(data: &mut crate::models::PortalData) -> bool {
@@ -1640,7 +1640,7 @@ pub async fn portal_configfile(State(state): State<Arc<PortalState>>, headers: a
     Json(serde_json::json!({"content": config})).into_response()
 }
 
-pub async fn portal_configfile_save(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+pub async fn portal_configfile_save(State(_state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
     let _content = body["content"].as_str().unwrap_or("");
     // Config is read-only for now (computed from PortalData)

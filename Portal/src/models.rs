@@ -437,6 +437,7 @@ pub struct PortalRemoveChannelRequest {
 pub struct PortalUpdateChannelConfigRequest {
     pub channel_name: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub channel_instance_id: Option<String>,
     pub config: serde_json::Value,
 }
