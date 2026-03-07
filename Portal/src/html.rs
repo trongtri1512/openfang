@@ -57,7 +57,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .iw input{width:100%;padding:12px 16px 12px 44px;border:1px solid var(--b);border-radius:12px;font-size:.9rem;font-family:inherit;color:var(--t);outline:none;transition:border-color .2s,box-shadow .2s;background:var(--input-bg)}
 .iw input:focus{border-color:var(--o);box-shadow:0 0 0 3px rgba(255,92,0,.1)}
 .iw input::placeholder{color:var(--m)}
-.iw .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--m)}
+.iw .ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--m);z-index:1}
 .bl{width:100%;padding:14px;background:var(--o);color:#fff;border:none;border-radius:12px;font-size:.95rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background .2s,transform .15s;margin-top:8px}
 .bl:hover{background:var(--oh);transform:translateY(-1px)}.bl:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .em{color:var(--r);font-size:.8rem;margin-top:12px;display:none}
