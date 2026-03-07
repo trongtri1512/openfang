@@ -202,9 +202,24 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
         <a class="si active" onclick="showPage('tenants')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M9 21V9"/></svg>Tenants</a>
         <div class="sb-label">Channels</div>
         <a class="si" onclick="showPage('channel-instances')" id="channelInstancesNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Multi Channels</a>
+        <div class="sb-label">Agent Features</div>
+        <a class="si" onclick="showPage('knowledge')" id="knowledgeNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Kho tri thức</a>
+        <a class="si" onclick="showPage('tools')" id="toolsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>Công cụ</a>
+        <a class="si" onclick="showPage('skills')" id="skillsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Skills Market</a>
+        <a class="si" onclick="showPage('gallery')" id="galleryNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Gallery</a>
         <div class="sb-label">Automation</div>
         <a class="si" onclick="showPage('workflows')" id="workflowsNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Workflows</a>
         <a class="si" onclick="showPage('scheduler')" id="schedulerNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Scheduler</a>
+        <a class="si" onclick="showPage('orchestration')" id="orchestrationNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9"/></svg>Điều phối</a>
+        <a class="si" onclick="showPage('orgmap')" id="orgmapNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Org Map</a>
+        <a class="si" onclick="showPage('kanban')" id="kanbanNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M16 3v18"/></svg>Kanban</a>
+        <div class="sb-label">Monitoring</div>
+        <a class="si" onclick="showPage('traces')" id="tracesNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>LLM Traces</a>
+        <a class="si" onclick="showPage('cost')" id="costNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Cost Tracking</a>
+        <a class="si" onclick="showPage('activity')" id="activityNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity Feed</a>
+        <a class="si" onclick="showPage('apikeys')" id="apikeysNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>API Keys</a>
+        <a class="si" onclick="showPage('usage')" id="usageNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Usage & Quotas</a>
+        <a class="si" onclick="showPage('configfile')" id="configfileNav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Tệp cấu hình</a>
         <div class="sb-label" id="managementLabel" style="display:none">Management</div>
         <a class="si" onclick="showPage('members')" id="membersNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Members</a>
         <a class="si" onclick="showPage('users')" id="usersNav" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Users</a>
@@ -367,6 +382,19 @@ else if(p==='users'){document.getElementById('usersNav').classList.add('active')
 else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}
 else if(p==='workflows'){document.getElementById('workflowsNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Workflows';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createWorkflowModal\")">+ Create Workflow</button>';renderWorkflows()}
 else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Job</button>';renderScheduler()}
+else if(p==='knowledge'){document.getElementById('knowledgeNav').classList.add('active');document.getElementById('pageTitle').textContent='📚 Kho tri thức';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openKnowledgeUpload()">📎 Upload File</button>';renderKnowledge()}
+else if(p==='tools'){document.getElementById('toolsNav').classList.add('active');document.getElementById('pageTitle').textContent='🛠️ Công cụ';renderTools()}
+else if(p==='skills'){document.getElementById('skillsNav').classList.add('active');document.getElementById('pageTitle').textContent='🎯 Skills Market';renderSkills()}
+else if(p==='gallery'){document.getElementById('galleryNav').classList.add('active');document.getElementById('pageTitle').textContent='🎨 Gallery';renderGallery()}
+else if(p==='orchestration'){document.getElementById('orchestrationNav').classList.add('active');document.getElementById('pageTitle').textContent='🎯 Điều phối';renderOrchestration()}
+else if(p==='orgmap'){document.getElementById('orgmapNav').classList.add('active');document.getElementById('pageTitle').textContent='🗺️ Org Map';renderOrgMap()}
+else if(p==='kanban'){document.getElementById('kanbanNav').classList.add('active');document.getElementById('pageTitle').textContent='📋 Kanban Board';renderKanban()}
+else if(p==='traces'){document.getElementById('tracesNav').classList.add('active');document.getElementById('pageTitle').textContent='📊 LLM Traces';renderTraces()}
+else if(p==='cost'){document.getElementById('costNav').classList.add('active');document.getElementById('pageTitle').textContent='💰 Cost Tracking';renderCost()}
+else if(p==='activity'){document.getElementById('activityNav').classList.add('active');document.getElementById('pageTitle').textContent='⚡ Activity Feed';document.getElementById('headerActions').innerHTML='<button class="btn-r" onclick="clearActivity()">🗑 Xoá Activity</button>';renderActivity()}
+else if(p==='apikeys'){document.getElementById('apikeysNav').classList.add('active');document.getElementById('pageTitle').textContent='🔑 API Keys';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="createApiKey()">+ Tạo Key</button>';renderApiKeys()}
+else if(p==='usage'){document.getElementById('usageNav').classList.add('active');document.getElementById('pageTitle').textContent='📊 Usage & Quotas';renderUsage()}
+else if(p==='configfile'){document.getElementById('configfileNav').classList.add('active');document.getElementById('pageTitle').textContent='📄 Tệp cấu hình';renderConfigFile()}
 }
 
 // Tenant List
@@ -1005,6 +1033,141 @@ async function deleteChannelInstance(id,name){
   const d=await api('DELETE','/api/portal/channel-instances/'+id);
   if(d.ok)renderChannelInstances();else alert(d.error||'Failed');
 }
+
+// ─── Knowledge Base (RAG) ────────────────────────────────────────────────────
+async function renderKnowledge(){
+  const d=await api('GET','/api/portal/knowledge');
+  const docs=d.documents||[];
+  if(docs.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px 24px"><div style="font-size:3rem;margin-bottom:16px">📚</div><h3 style="color:var(--d);font-weight:500">Chưa có tài liệu</h3><p style="color:var(--m);margin-top:8px;font-size:.85rem">Upload PDF hoặc paste text để AI trả lời chính xác hơn (RAG).</p><button class="btn-o" style="margin-top:16px" onclick="openKnowledgeUpload()">📎 Upload File</button></div>`;return}
+  const rows=docs.map(doc=>`<tr><td style="font-weight:500">${doc.name||doc.filename||'-'}</td><td><span class="badge plan">${doc.chunks||0} chunks</span></td><td style="font-size:.8rem;color:var(--d)">${doc.size||'-'}</td><td style="font-size:.8rem;color:var(--d)">${fmtDate(doc.created_at)}</td><td><button class="btn-r" onclick="deleteKnowledge('${doc.id}')">Delete</button></td></tr>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Tài liệu: <span class="sv">${d.total_docs||docs.length}</span></span><span class="sl">Đoạn văn: <span class="sv">${d.total_chunks||0}</span></span></div><table class="dt"><thead><tr><th>Tên</th><th>Chunks</th><th>Size</th><th>Ngày tạo</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function openKnowledgeUpload(){const text=prompt('Nhập nội dung text để thêm vào Knowledge Base:');if(!text)return;api('POST','/api/portal/knowledge',{content:text,type:'text'}).then(d=>{if(d.ok||d.id)renderKnowledge();else alert(d.error||'Failed')})}
+async function deleteKnowledge(id){if(!confirm('Xoá tài liệu này?'))return;await api('DELETE','/api/portal/knowledge/'+id);renderKnowledge()}
+
+// ─── Tools ───────────────────────────────────────────────────────────────────
+async function renderTools(){
+  const d=await api('GET','/api/portal/tools');
+  const tools=d.tools||[];
+  if(tools.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><h3 style="color:var(--d)">Không có tools</h3><p style="color:var(--m);font-size:.85rem">Chưa có công cụ nào từ OpenFang API.</p></div>`;return}
+  const cards=tools.map(t=>`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:1.5rem">${t.icon||'🔧'}</span><div><div style="font-weight:600">${t.name}</div><div style="font-size:.75rem;color:var(--d)">${t.desc||''}</div></div></div><div style="display:flex;justify-content:space-between;align-items:center"><span class="badge ${t.enabled?'running':'stopped'}">${t.enabled?'Enabled':'Disabled'}</span><button class="btn-g" style="font-size:.75rem" onclick="toggleTool('${t.name}',${!t.enabled})">${t.enabled?'Disable':'Enable'}</button></div></div>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${tools.length}</span></span><span class="sl">Active: <span class="sv gn">${tools.filter(t=>t.enabled).length}</span></span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>`;
+}
+async function toggleTool(name,enable){await api('POST','/api/portal/tools/'+name+'/toggle',{enabled:enable});renderTools()}
+
+// ─── Skills Market ───────────────────────────────────────────────────────────
+async function renderSkills(){
+  const d=await api('GET','/api/portal/system/skills');
+  const skills=d.skills||d||[];
+  if(!Array.isArray(skills)||skills.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🎯</div><h3 style="color:var(--d)">Skills Market</h3><p style="color:var(--m);font-size:.85rem">Chưa có skills từ OpenFang API.</p></div>`;return}
+  const CATS={coding:'💻',data:'📊',security:'🔒',business:'💼',writing:'✍️',research:'🔬'};
+  const cards=skills.map(s=>`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:1.5rem">${s.icon||CATS[s.category]||'🎯'}</span><div><div style="font-weight:600">${s.name}</div><div style="font-size:.7rem;color:var(--d)">${s.category||''} • v${s.version||'1.0'}</div></div></div><p style="font-size:.8rem;color:var(--d);margin-bottom:10px">${s.description||''}</p><span class="badge ${s.installed?'running':'plan'}">${s.installed?'Installed':'Available'}</span></div>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${skills.length}</span></span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>`;
+}
+
+// ─── Gallery (Agent Templates) ────────────────────────────────────────────────
+async function renderGallery(){
+  const d=await api('GET','/api/portal/gallery');
+  const items=d.templates||d.gallery||d||[];
+  if(!Array.isArray(items)||items.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🎨</div><h3 style="color:var(--d)">Agent Gallery</h3><p style="color:var(--m);font-size:.85rem">Mẫu agent templates từ OpenFang.</p></div>`;return}
+  const cards=items.map(t=>`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)"><div style="font-weight:600;margin-bottom:4px">${t.icon||'🤖'} ${t.name||t.title||'-'}</div><div style="font-size:.75rem;color:var(--d)">${t.category||t.department||''}</div><p style="font-size:.8rem;color:var(--d);margin:8px 0">${t.description||''}</p><button class="btn-g" style="font-size:.75rem">Clone</button></div>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${cards}</div>`;
+}
+
+// ─── Orchestration ───────────────────────────────────────────────────────────
+async function renderOrchestration(){
+  const d=await api('GET','/api/portal/orchestration');
+  const links=['delegate','handoff','broadcast','escalate'];
+  const delegations=d.delegations||[];
+  document.getElementById('mainContent').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div class="sbox"><h3 style="margin-bottom:12px">📋 Ủy quyền (${delegations.length})</h3>${delegations.length===0?'<p style="color:var(--d);font-size:.85rem">Chưa có delegation.</p>':delegations.map(d=>`<div style="padding:8px;border:1px solid var(--b);border-radius:8px;margin-bottom:6px"><b>${d.name||d.from||'-'}</b> → ${d.to||'-'}</div>`).join('')}</div><div class="sbox"><h3 style="margin-bottom:12px">🔗 Liên kết quyền</h3>${links.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid var(--b);border-radius:8px;margin-bottom:6px"><span style="font-weight:600">${l}</span><span class="badge running">Enabled</span></div>`).join('')}</div></div>`;
+}
+
+// ─── Org Map ─────────────────────────────────────────────────────────────────
+async function renderOrgMap(){
+  const d=await api('GET','/api/portal/orgmap');
+  const nodes=d.nodes||d.agents||[];
+  if(nodes.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🗺️</div><h3 style="color:var(--d)">Org Map</h3><p style="color:var(--m);font-size:.85rem">Sơ đồ tổ chức Agent. Deploy agents để xem hierarchy.</p></div>`;return}
+  const cards=nodes.map(n=>`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg);text-align:center"><div style="font-size:2rem">${n.icon||'🤖'}</div><div style="font-weight:600;margin-top:4px">${n.name||n.id||'-'}</div><div style="font-size:.75rem;color:var(--d)">${n.role||n.type||'agent'}</div></div>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">${cards}</div>`;
+}
+
+// ─── Kanban ──────────────────────────────────────────────────────────────────
+async function renderKanban(){
+  const d=await api('GET','/api/portal/kanban');
+  const cols={'inbox':[],'in_progress':[],'review':[],'done':[]};
+  const tasks=d.tasks||d.items||[];
+  tasks.forEach(t=>{const col=t.status||'inbox';if(cols[col])cols[col].push(t);else cols['inbox'].push(t)});
+  const colNames={'inbox':'📥 Inbox','in_progress':'🔄 Đang làm','review':'👀 Review','done':'✅ Hoàn thành'};
+  let html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;min-height:400px">';
+  for(const [key,items] of Object.entries(cols)){
+    html+=`<div style="background:var(--ol);border-radius:12px;padding:12px"><h4 style="font-size:.85rem;margin-bottom:8px">${colNames[key]||key} (${items.length})</h4>`;
+    items.forEach(t=>{html+=`<div style="background:var(--bg);border:1px solid var(--b);border-radius:8px;padding:10px;margin-bottom:8px"><div style="font-weight:500;font-size:.85rem">${t.title||t.name||'-'}</div><div style="font-size:.7rem;color:var(--d);margin-top:4px">${t.agent||''}</div></div>`});
+    html+='</div>';
+  }
+  html+='</div>';
+  document.getElementById('mainContent').innerHTML=html;
+}
+
+// ─── LLM Traces ──────────────────────────────────────────────────────────────
+async function renderTraces(){
+  const d=await api('GET','/api/portal/traces');
+  const traces=d.traces||d||[];
+  if(!Array.isArray(traces)||traces.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">📊</div><h3 style="color:var(--d)">LLM Traces</h3><p style="color:var(--m);font-size:.85rem">Giám sát mọi cuộc gọi LLM: token, latency, cost.</p></div>`;return}
+  const rows=traces.map(t=>`<tr><td style="font-family:monospace;font-size:.75rem">${(t.id||'').substring(0,8)}...</td><td>${t.model||'-'}</td><td>${t.prompt_tokens||0}</td><td>${t.completion_tokens||0}</td><td>${t.latency_ms||0}ms</td><td>$${(t.cost||0).toFixed(4)}</td><td style="font-size:.8rem">${fmtDate(t.created_at)}</td></tr>`).join('');
+  document.getElementById('mainContent').innerHTML=`<table class="dt"><thead><tr><th>ID</th><th>Model</th><th>Prompt</th><th>Completion</th><th>Latency</th><th>Cost</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ─── Cost Tracking ───────────────────────────────────────────────────────────
+async function renderCost(){
+  const d=await api('GET','/api/portal/cost');
+  const models=d.models||d.breakdown||[];
+  const total=d.total_cost||0;
+  if(!Array.isArray(models)||models.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">💰</div><h3 style="color:var(--d)">Cost Tracking</h3><p style="color:var(--m);font-size:.85rem">Thống kê chi phí LLM theo model. Bắt đầu chat để tạo traces.</p></div>`;return}
+  const rows=models.map(m=>`<tr><td style="font-weight:500">${m.model||m.name||'-'}</td><td>${m.requests||0}</td><td>${m.tokens||0}</td><td>$${(m.cost||0).toFixed(4)}</td><td>${(m.percentage||0).toFixed(1)}%</td></tr>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total Cost: <span class="sv">$${total.toFixed(4)}</span></span></div><table class="dt"><thead><tr><th>Model</th><th>Requests</th><th>Tokens</th><th>Cost</th><th>%</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ─── Activity Feed ───────────────────────────────────────────────────────────
+async function renderActivity(){
+  const d=await api('GET','/api/portal/activity');
+  const events=d.events||d||[];
+  if(!Array.isArray(events)||events.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">⚡</div><h3 style="color:var(--d)">Activity Feed</h3><p style="color:var(--m);font-size:.85rem">Nhật ký sự kiện hệ thống. Tự động refresh.</p></div>`;return}
+  const items=events.map(e=>`<div style="border-left:3px solid var(--o);padding:8px 12px;margin-bottom:8px;background:var(--ol);border-radius:0 8px 8px 0"><div style="font-weight:500;font-size:.85rem">${e.type||e.event||'-'}</div><div style="font-size:.75rem;color:var(--d)">${e.message||e.detail||''}</div><div style="font-size:.7rem;color:var(--m);margin-top:2px">${fmtDate(e.timestamp||e.created_at)}</div></div>`).join('');
+  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Events: <span class="sv">${events.length}</span></span></div>${items}`;
+}
+async function clearActivity(){if(!confirm('Xoá tất cả activity?'))return;await api('DELETE','/api/portal/activity');renderActivity()}
+
+// ─── API Keys ────────────────────────────────────────────────────────────────
+async function renderApiKeys(){
+  const d=await api('GET','/api/portal/apikeys');
+  const keys=d.keys||d.api_keys||d||[];
+  if(!Array.isArray(keys)||keys.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🔑</div><h3 style="color:var(--d)">API Keys</h3><p style="color:var(--m);font-size:.85rem">Tạo API key để truy cập từ ứng dụng bên ngoài.</p><button class="btn-o" style="margin-top:16px" onclick="createApiKey()">+ Tạo Key</button></div>`;return}
+  const rows=keys.map(k=>`<tr><td style="font-weight:500">${k.name||'-'}</td><td style="font-family:monospace;font-size:.75rem">${k.key?k.key.substring(0,12)+'...':k.prefix||'-'}</td><td style="font-size:.8rem">${fmtDate(k.created_at)}</td><td><button class="btn-r" onclick="deleteApiKey('${k.id}')">Delete</button></td></tr>`).join('');
+  document.getElementById('mainContent').innerHTML=`<table class="dt"><thead><tr><th>Name</th><th>Key</th><th>Created</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+async function createApiKey(){const name=prompt('Tên cho API key:');if(!name)return;const d=await api('POST','/api/portal/apikeys',{name});if(d.key||d.id){alert('✅ Key tạo thành công!'+(d.key?'\n\nKey: '+d.key:''));renderApiKeys()}else alert(d.error||'Failed')}
+async function deleteApiKey(id){if(!confirm('Xoá API key?'))return;await api('DELETE','/api/portal/apikeys/'+id);renderApiKeys()}
+
+// ─── Usage & Quotas ──────────────────────────────────────────────────────────
+async function renderUsage(){
+  const d=await api('GET','/api/portal/usage');
+  const metrics=[
+    {label:'Agents',used:d.agents_used||0,max:d.agents_max||10,icon:'🤖'},
+    {label:'Tokens/tháng',used:d.tokens_used||0,max:d.tokens_max||100000,icon:'📊'},
+    {label:'Requests/tháng',used:d.requests_used||0,max:d.requests_max||10000,icon:'📨'},
+    {label:'API Keys',used:d.apikeys_used||0,max:d.apikeys_max||5,icon:'🔑'}
+  ];
+  const bars=metrics.map(m=>{const pct=m.max>0?Math.min(100,m.used/m.max*100):0;const color=pct>80?'var(--rt)':pct>50?'#f59e0b':'var(--gt)';return `<div class="sbox" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${m.icon} ${m.label}</span><span style="font-size:.85rem;color:var(--d)">${m.used.toLocaleString()} / ${m.max.toLocaleString()}</span></div><div style="background:var(--ol);border-radius:8px;height:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:8px;transition:width .3s"></div></div></div>`}).join('');
+  document.getElementById('mainContent').innerHTML=bars;
+}
+
+// ─── Config File ─────────────────────────────────────────────────────────────
+async function renderConfigFile(){
+  const d=await api('GET','/api/portal/configfile');
+  const content=d.content||d.config||JSON.stringify(d,null,2);
+  document.getElementById('mainContent').innerHTML=`<div class="sbox"><h3 style="margin-bottom:12px">📄 config.toml</h3><textarea id="configContent" style="width:100%;height:400px;font-family:monospace;font-size:.8rem;padding:12px;border:1px solid var(--b);border-radius:8px;background:var(--ol);color:var(--t);resize:vertical">${typeof content==='string'?content:JSON.stringify(content,null,2)}</textarea><div style="margin-top:12px;text-align:right"><button class="btn-o" onclick="saveConfigFile()">💾 Save Config</button></div></div>`;
+}
+async function saveConfigFile(){const content=document.getElementById('configContent').value;const d=await api('POST','/api/portal/configfile',{content});if(d.ok)alert('✅ Config saved!');else alert(d.error||'Failed')}
 
 // Init + Permalink
 window.addEventListener('popstate',function(e){if(e.state&&e.state.page==='detail'&&e.state.id){openDetail(e.state.id)}else{showPage('tenants')}});

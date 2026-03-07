@@ -1350,3 +1350,113 @@ pub async fn channel_webhook_verify(
     // Telegram doesn't need GET verification, but we return OK for health checks
     Json(serde_json::json!({"ok":true, "channel_id": short_id})).into_response()
 }
+
+// ─── Tenant Feature Proxies (Knowledge, Tools, Skills, etc.) ─────────────────
+
+// Knowledge Base (RAG)
+pub async fn portal_knowledge_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/knowledge/documents").await.into_response()
+}
+pub async fn portal_knowledge_upload(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/knowledge/documents", body).await.into_response()
+}
+pub async fn portal_knowledge_delete(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, &format!("/api/knowledge/documents/{}", id)).await.into_response()
+}
+
+// Tools
+pub async fn portal_tools_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/tools").await.into_response()
+}
+pub async fn portal_tools_toggle(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, &format!("/api/tools/{}/toggle", name), body).await.into_response()
+}
+
+// LLM Traces
+pub async fn portal_traces(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/traces").await.into_response()
+}
+
+// Cost Tracking
+pub async fn portal_cost(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/cost").await.into_response()
+}
+
+// Activity Feed
+pub async fn portal_activity(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/activity").await.into_response()
+}
+pub async fn portal_activity_clear(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, "/api/activity").await.into_response()
+}
+
+// API Keys
+pub async fn portal_apikeys_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/apikeys").await.into_response()
+}
+pub async fn portal_apikeys_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/apikeys", body).await.into_response()
+}
+pub async fn portal_apikeys_delete(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_delete(&state, &format!("/api/apikeys/{}", id)).await.into_response()
+}
+
+// Usage & Quotas
+pub async fn portal_usage(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/usage").await.into_response()
+}
+
+// Org Map
+pub async fn portal_orgmap(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/orgmap").await.into_response()
+}
+
+// Kanban
+pub async fn portal_kanban(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/kanban").await.into_response()
+}
+pub async fn portal_kanban_update(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_put(&state, &format!("/api/kanban/{}", id), body).await.into_response()
+}
+
+// Gallery (Agent Templates)
+pub async fn portal_gallery(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/gallery").await.into_response()
+}
+
+// Config File
+pub async fn portal_configfile(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/config").await.into_response()
+}
+pub async fn portal_configfile_save(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/config", body).await.into_response()
+}
+
+// Orchestration (Delegation)
+pub async fn portal_orchestration(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_get(&state, "/api/orchestration").await.into_response()
+}
+pub async fn portal_orchestration_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    proxy_post(&state, "/api/orchestration", body).await.into_response()
+}

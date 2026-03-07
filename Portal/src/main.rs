@@ -116,6 +116,35 @@ async fn main() {
         .route("/api/portal/channel-instances/{id}/webhook", axum::routing::post(handlers::channel_instance_set_webhook))
         // Channel webhook receivers (incoming messages from Telegram/Zalo/etc.)
         .route("/webhook/ch/{id}", axum::routing::get(handlers::channel_webhook_verify).post(handlers::channel_webhook_receive))
+        // ─── Tenant feature proxies (OpenFang API) ───────────────────────────
+        // Knowledge Base (RAG)
+        .route("/api/portal/knowledge", axum::routing::get(handlers::portal_knowledge_list).post(handlers::portal_knowledge_upload))
+        .route("/api/portal/knowledge/{id}", axum::routing::delete(handlers::portal_knowledge_delete))
+        // Tools
+        .route("/api/portal/tools", axum::routing::get(handlers::portal_tools_list))
+        .route("/api/portal/tools/{name}/toggle", axum::routing::post(handlers::portal_tools_toggle))
+        // LLM Traces
+        .route("/api/portal/traces", axum::routing::get(handlers::portal_traces))
+        // Cost Tracking
+        .route("/api/portal/cost", axum::routing::get(handlers::portal_cost))
+        // Activity Feed
+        .route("/api/portal/activity", axum::routing::get(handlers::portal_activity).delete(handlers::portal_activity_clear))
+        // API Keys
+        .route("/api/portal/apikeys", axum::routing::get(handlers::portal_apikeys_list).post(handlers::portal_apikeys_create))
+        .route("/api/portal/apikeys/{id}", axum::routing::delete(handlers::portal_apikeys_delete))
+        // Usage & Quotas
+        .route("/api/portal/usage", axum::routing::get(handlers::portal_usage))
+        // Org Map
+        .route("/api/portal/orgmap", axum::routing::get(handlers::portal_orgmap))
+        // Kanban
+        .route("/api/portal/kanban", axum::routing::get(handlers::portal_kanban))
+        .route("/api/portal/kanban/{id}", axum::routing::put(handlers::portal_kanban_update))
+        // Gallery (Agent Templates)
+        .route("/api/portal/gallery", axum::routing::get(handlers::portal_gallery))
+        // Config File
+        .route("/api/portal/configfile", axum::routing::get(handlers::portal_configfile).post(handlers::portal_configfile_save))
+        // Orchestration
+        .route("/api/portal/orchestration", axum::routing::get(handlers::portal_orchestration).post(handlers::portal_orchestration_create))
         .with_state(state);
 
     // Add CORS
