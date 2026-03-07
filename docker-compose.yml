@@ -23,7 +23,7 @@ services:
   openfang:
     build: .
     ports:
-      - "4200:4200"
+      - "127.0.0.1:4200:4200"
     volumes:
       - openfang-data:/data
     environment:
