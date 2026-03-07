@@ -68,7 +68,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .sbh{padding:16px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--b)}
 .sbh svg{width:28px;height:28px}.sbh span{font-size:1rem;font-weight:700}
 .sbu{padding:12px 20px;font-size:.8rem;color:var(--d);border-bottom:1px solid var(--b)}
-.sbn{flex:1;padding:8px}
+.sbn{flex:1;padding:8px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
 .si{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:.85rem;font-weight:500;color:var(--d);cursor:pointer;transition:all .15s;text-decoration:none}
 .sb-label{padding:16px 12px 4px;font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m)}
 .wf-step{background:var(--bg2);border:1px solid var(--b);border-radius:10px;padding:14px;margin-bottom:8px;position:relative}.wf-step .step-num{position:absolute;top:10px;left:14px;font-size:.7rem;font-weight:600;color:var(--m)}.wf-step .step-del{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--r);cursor:pointer;font-size:1rem;padding:2px 6px}.wf-step .config-row{display:flex;gap:8px;margin-top:4px}.wf-step .fg{margin-top:6px}.wf-step label{font-size:.75rem;font-weight:500;color:var(--d)}.wf-step input,.wf-step select,.wf-step textarea{width:100%;padding:6px 10px;border:1px solid var(--b);border-radius:6px;font-size:.8rem;background:var(--bg);color:var(--t)}
