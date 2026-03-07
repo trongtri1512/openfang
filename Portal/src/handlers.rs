@@ -1079,6 +1079,7 @@ pub async fn channel_instance_create(
         last_message_at: None,
         message_count: 0,
         status: ChannelInstanceStatus::Pending,
+        agent_id: None,
     };
     data.channel_instances.push(instance);
     let _ = save_data(&state, &data);
