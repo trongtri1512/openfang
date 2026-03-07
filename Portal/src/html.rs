@@ -367,6 +367,7 @@ else if(p==='users'){document.getElementById('usersNav').classList.add('active')
 else if(p==='plans'){document.getElementById('plansNav').classList.add('active');document.getElementById('pageTitle').textContent='Service Plans';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createPlanModal\")">+ Create Plan</button>';renderPlans()}
 else if(p==='workflows'){document.getElementById('workflowsNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Workflows';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createWorkflowModal\")">+ Create Workflow</button>';renderWorkflows()}
 else if(p==='scheduler'){document.getElementById('schedulerNav').classList.add('active');document.getElementById('pageTitle').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler';document.getElementById('headerActions').innerHTML='<button class="btn-o" onclick="openModal(\"createSchedulerModal\")">+ Create Job</button>';renderScheduler()}
+}
 
 // Tenant List
 function renderList(){
