@@ -955,7 +955,7 @@ function renderWiki(){
   const sections=[
     {title:'📊 Ads Dashboard',id:'wiki-ads',content:`<div style="display:grid;gap:12px">
       <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 1:</b> Đăng nhập <a href="https://lookerstudio.google.com" target="_blank" style="color:var(--o)">Looker Studio</a> (miễn phí)</div>
-      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 2:</b> Thêm nguồn dữ liệu:<br>• <b>Google Ads</b> → Connector gốc (miễn phí)<br>• <b>Facebook Ads</b> → Supermetrics hoặc Adveronix<br>• <b>TikTok Ads</b> → Coupler.io, Catchr, hoặc Porter Metrics</div>
+      <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 2:</b> Thêm nguồn dữ liệu:<br>• <b>Google Ads</b> → Connector gốc (miễn phí)<br>• <b>Facebook Ads</b> → Supermetrics hoặc Adveronix<br>• <b>TikTok Ads</b> → Catchr hoặc Porter Metrics</div>
       <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 3:</b> Tạo dashboard với các KPI: CPC, CTR, Chi phí, Lượt tiếp cận, Tương tác</div>
       <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 4:</b> Vào <b>Ads Dashboard</b> trong Portal → Dán embed link → Dashboard auto hiển thị</div>
       <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>Bước 5:</b> Tạo <b>Scheduler</b> để agent tự thu thập data hàng ngày + email cảnh báo chiến dịch kém</div>
@@ -1003,7 +1003,7 @@ let _adsTab='dashboard',_adsPlatform='all';
 const ADS_PLATFORMS=[
   {id:'google',icon:'🔍',name:'Google Ads',color:'#4285F4',connector:'Native (miễn phí)',key:'ads_embed_google',setup:'Looker Studio → Add Data → Google Ads → Chọn tài khoản → Done'},
   {id:'facebook',icon:'📘',name:'Facebook Ads',color:'#1877F2',connector:'Supermetrics / Adveronix',key:'ads_embed_facebook',setup:'Looker Studio → Add Data → Community Connector → Supermetrics → Facebook Ads'},
-  {id:'tiktok',icon:'🎵',name:'TikTok Ads',color:'#000000',connector:'Coupler.io / Porter Metrics',key:'ads_embed_tiktok',setup:'Looker Studio → Add Data → Community Connector → Coupler.io → TikTok Ads'}
+  {id:'tiktok',icon:'🎵',name:'TikTok Ads',color:'#000000',connector:'Porter Metrics / Catchr',key:'ads_embed_tiktok',setup:'Looker Studio → Add Data → Community Connector → Porter Metrics → TikTok Ads'}
 ];
 function _adsTabBtn(id,label){return `<button onclick="_adsTab='${id}';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab===id?'600':'500'};color:${_adsTab===id?'var(--o)':'var(--d)'};border-bottom:${_adsTab===id?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">${label}</button>`}
 function renderAdsDashboard(){
@@ -1032,11 +1032,10 @@ function renderAdsDashboard(){
         <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>5.</b> Data auto cập nhật mỗi <b>1-24h</b> tuỳ gói. Embed vào Portal.</div>
       </div></div>
       <div class="sbox"><h3 style="margin-bottom:12px">🎵 TikTok Ads <span style="font-size:.7rem;padding:2px 8px;background:#fce4ec;color:#c62828;border-radius:10px;font-weight:600">CẦN CONNECTOR</span></h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Dùng <a href="https://coupler.io" target="_blank" style="color:var(--o)">Coupler.io</a> hoặc <a href="https://portermetrics.com" target="_blank" style="color:var(--o)">Porter Metrics</a></div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Dùng <a href="https://portermetrics.com" target="_blank" style="color:var(--o)">Porter Metrics</a> hoặc <a href="https://catchr.io" target="_blank" style="color:var(--o)">Catchr</a></div>
         <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> TikTok Ads Manager → tạo API Access Token → dán vào connector</div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Coupler.io xuất data → Google Sheet → Looker Studio (auto sync 1-2h)</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Kết nối trực tiếp Looker Studio hoặc xuất data về Google Sheet</div>
       </div></div>
-      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">💡 Datapot.vn</h3><p style="font-size:.85rem;color:var(--d)">Công cụ VN xuất báo cáo đa nền tảng. <a href="https://datapot.vn" target="_blank" style="color:var(--o)">datapot.vn</a></p></div>
     </div>`;return;
   }
   if(_adsTab==='kpi'){
@@ -1060,7 +1059,6 @@ function renderAdsDashboard(){
           <div style="padding:16px;border:1px solid var(--b);border-radius:12px;display:flex;align-items:center;gap:12px"><div style="font-size:1.5rem">📘</div><div style="flex:1"><b>Facebook Ads</b><br><span style="font-size:.8rem;color:var(--d)">Ads Manager → Reporting → Export CSV</span></div><a href="https://adsmanager.facebook.com" target="_blank" class="btn-o" style="font-size:.75rem;text-decoration:none">Mở</a></div>
           <div style="padding:16px;border:1px solid var(--b);border-radius:12px;display:flex;align-items:center;gap:12px"><div style="font-size:1.5rem">🎵</div><div style="flex:1"><b>TikTok Ads</b><br><span style="font-size:.8rem;color:var(--d)">Ads Manager → Custom Reports → Export CSV</span></div><a href="https://ads.tiktok.com" target="_blank" class="btn-o" style="font-size:.75rem;text-decoration:none">Mở</a></div>
         </div></div>
-      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">🔄 Tự động xuất với Coupler.io</h3><p style="font-size:.85rem;color:var(--d)">Dùng <a href="https://coupler.io" target="_blank" style="color:var(--o)">Coupler.io</a> tự động xuất data FB/TikTok/Google → Google Sheet mỗi 1-2h. Looker Studio đọc từ Sheet → Dashboard luôn cập nhật.</p></div>
     </div>`;return;
   }
   // Dashboard tab — multi-platform embeds
