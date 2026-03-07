@@ -191,6 +191,147 @@ pub struct ServicePlan {
 }
 
 // ---------------------------------------------------------------------------
+// Independent Portal Feature Models
+// ---------------------------------------------------------------------------
+
+/// Knowledge Base document for RAG.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeDoc {
+    pub id: String,
+    pub tenant_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub content: String,
+    #[serde(default)]
+    pub chunks: u32,
+    #[serde(default)]
+    pub size_bytes: u64,
+    pub created_at: String,
+}
+
+/// Tool configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortalTool {
+    pub name: String,
+    #[serde(default)]
+    pub icon: String,
+    #[serde(default)]
+    pub desc: String,
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub builtin: bool,
+}
+
+/// Skill from Skills Market.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortalSkill {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub icon: String,
+    #[serde(default)]
+    pub category: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub version: String,
+    #[serde(default)]
+    pub installed: bool,
+    #[serde(default)]
+    pub builtin: bool,
+}
+
+/// Agent template for Gallery.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentTemplate {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub icon: String,
+    #[serde(default)]
+    pub category: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub system_prompt: String,
+}
+
+/// Agent-to-agent delegation rule.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Delegation {
+    pub id: String,
+    #[serde(default)]
+    pub from_agent: String,
+    #[serde(default)]
+    pub to_agent: String,
+    #[serde(default)]
+    pub link_type: String,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+/// Kanban task/card.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KanbanTask {
+    pub id: String,
+    #[serde(default)]
+    pub tenant_id: String,
+    pub title: String,
+    #[serde(default)]
+    pub agent: String,
+    #[serde(default)]
+    pub status: String,      // inbox, in_progress, review, done
+    pub created_at: String,
+}
+
+/// LLM call trace log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmTrace {
+    pub id: String,
+    #[serde(default)]
+    pub tenant_id: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub prompt_tokens: u32,
+    #[serde(default)]
+    pub completion_tokens: u32,
+    #[serde(default)]
+    pub latency_ms: u32,
+    #[serde(default)]
+    pub cost: f64,
+    pub created_at: String,
+}
+
+/// System activity event.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityEvent {
+    pub id: String,
+    #[serde(default)]
+    pub tenant_id: String,
+    #[serde(default)]
+    pub event_type: String,
+    #[serde(default)]
+    pub message: String,
+    pub created_at: String,
+}
+
+/// Portal-managed API key.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortalApiKey {
+    pub id: String,
+    #[serde(default)]
+    pub tenant_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub key_hash: String,
+    #[serde(default)]
+    pub key_prefix: String,
+    pub created_at: String,
+}
+
+// ---------------------------------------------------------------------------
 // Aggregate data file
 // ---------------------------------------------------------------------------
 
@@ -204,6 +345,25 @@ pub struct PortalData {
     pub tenants: Vec<Tenant>,
     #[serde(default)]
     pub channel_instances: Vec<ChannelInstance>,
+    // Independent feature data
+    #[serde(default)]
+    pub knowledge_docs: Vec<KnowledgeDoc>,
+    #[serde(default)]
+    pub tools: Vec<PortalTool>,
+    #[serde(default)]
+    pub skills: Vec<PortalSkill>,
+    #[serde(default)]
+    pub gallery: Vec<AgentTemplate>,
+    #[serde(default)]
+    pub delegations: Vec<Delegation>,
+    #[serde(default)]
+    pub kanban_tasks: Vec<KanbanTask>,
+    #[serde(default)]
+    pub traces: Vec<LlmTrace>,
+    #[serde(default)]
+    pub activity: Vec<ActivityEvent>,
+    #[serde(default)]
+    pub api_keys: Vec<PortalApiKey>,
 }
 
 // ---------------------------------------------------------------------------

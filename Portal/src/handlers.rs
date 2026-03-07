@@ -806,7 +806,9 @@ pub async fn portal_system_models(State(state): State<Arc<PortalState>>, headers
 
 pub async fn portal_system_skills(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/skills").await.into_response()
+    let mut data = load_data(&state);
+    if seed_skills(&mut data) { let _ = save_data(&state, &data); }
+    Json(serde_json::json!({"skills": data.skills})).into_response()
 }
 
 pub async fn portal_system_hands(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
@@ -887,16 +889,32 @@ pub async fn portal_system_channels_reload(State(state): State<Arc<PortalState>>
     proxy_post(&state, "/api/channels/reload", serde_json::json!({})).await.into_response()
 }
 
-/// Install a skill on OpenFang: POST /api/skills/install
+/// Install a skill: POST /api/portal/system/skills/install
 pub async fn portal_system_skill_install(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/skills/install", body).await.into_response()
+    let skill_id = body["id"].as_str().unwrap_or("").to_string();
+    let mut data = load_data(&state);
+    if let Some(skill) = data.skills.iter_mut().find(|s| s.id == skill_id) {
+        skill.installed = true;
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok":true, "installed": true})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Skill not found"}))).into_response()
+    }
 }
 
-/// Uninstall a skill on OpenFang: POST /api/skills/uninstall
+/// Uninstall a skill: POST /api/portal/system/skills/uninstall
 pub async fn portal_system_skill_uninstall(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/skills/uninstall", body).await.into_response()
+    let skill_id = body["id"].as_str().unwrap_or("").to_string();
+    let mut data = load_data(&state);
+    if let Some(skill) = data.skills.iter_mut().find(|s| s.id == skill_id) {
+        skill.installed = false;
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok":true, "installed": false})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Skill not found"}))).into_response()
+    }
 }
 
 /// Activate a hand on OpenFang: POST /api/hands/{id}/activate
@@ -1351,112 +1369,306 @@ pub async fn channel_webhook_verify(
     Json(serde_json::json!({"ok":true, "channel_id": short_id})).into_response()
 }
 
-// ─── Tenant Feature Proxies (Knowledge, Tools, Skills, etc.) ─────────────────
+// ─── Independent Portal Features (local data, no OpenFang dependency) ────────
 
-// Knowledge Base (RAG)
+use crate::models::{KnowledgeDoc, PortalTool, PortalSkill, AgentTemplate, Delegation, KanbanTask, LlmTrace, ActivityEvent, PortalApiKey};
+
+/// Seed default tools if empty.
+fn seed_tools(data: &mut crate::models::PortalData) -> bool {
+    if !data.tools.is_empty() { return false; }
+    let defaults = vec![
+        ("shell", "🖥️", "Execute system commands (sandboxed)"),
+        ("web_search", "🔍", "Search the web for information"),
+        ("http_request", "🌐", "Make HTTP API calls"),
+        ("execute_code", "💻", "Run Python/JavaScript code"),
+        ("read_file", "📄", "Read file contents"),
+        ("write_file", "✏️", "Write file contents"),
+        ("list_dir", "📁", "List directory contents"),
+        ("rag_search", "📚", "Search Knowledge Base"),
+        ("memory_recall", "🧠", "Recall from memory"),
+        ("calculator", "🔢", "Mathematical calculations"),
+        ("datetime", "🕐", "Get current date/time"),
+        ("json_parse", "📋", "Parse JSON data"),
+        ("text_transform", "🔤", "Transform text (upper, lower, etc.)"),
+    ];
+    for (name, icon, desc) in defaults {
+        data.tools.push(PortalTool { name: name.to_string(), icon: icon.to_string(), desc: desc.to_string(), enabled: true, builtin: true });
+    }
+    true
+}
+
+/// Seed default skills if empty.
+fn seed_skills(data: &mut crate::models::PortalData) -> bool {
+    if !data.skills.is_empty() { return false; }
+    let defaults = vec![
+        ("rust-expert", "Rust Expert", "🦀", "coding", "Rust expert: ownership, async, lifetimes, error handling"),
+        ("python-analyst", "Python Analyst", "🐍", "data", "Data analysis with pandas, numpy, matplotlib"),
+        ("web-developer", "Web Developer", "🌐", "coding", "Full-stack: HTML, CSS, JS, React, Node.js"),
+        ("security-auditor", "Security Auditor", "🔒", "security", "Vulnerability scanning, code audit, OWASP"),
+        ("business-analyst", "Business Analyst", "💼", "business", "Market research, financial analysis, strategy"),
+        ("content-writer", "Content Writer", "✍️", "writing", "SEO writing, blog posts, marketing copy"),
+        ("devops-engineer", "DevOps Engineer", "⚙️", "coding", "Docker, CI/CD, Kubernetes, cloud infra"),
+        ("data-scientist", "Data Scientist", "📊", "data", "ML, statistics, data visualization, prediction"),
+        ("qa-tester", "QA Tester", "🧪", "coding", "Test automation, bug reporting, quality assurance"),
+        ("research-assistant", "Research Assistant", "🔬", "research", "Academic research, literature review, summarization"),
+    ];
+    for (id, name, icon, cat, desc) in defaults {
+        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: "1.0.0".to_string(), installed: false, builtin: true });
+    }
+    true
+}
+
+/// Seed default gallery templates if empty.
+fn seed_gallery(data: &mut crate::models::PortalData) -> bool {
+    if !data.gallery.is_empty() { return false; }
+    let defaults = vec![
+        ("cs-agent", "Customer Support", "🎧", "Support", "Friendly customer service agent with FAQ knowledge"),
+        ("sales-agent", "Sales Assistant", "💰", "Sales", "Lead qualification, product recommendations, follow-ups"),
+        ("hr-agent", "HR Assistant", "👤", "HR", "Employee onboarding, policy Q&A, leave management"),
+        ("marketing-agent", "Marketing Planner", "📢", "Marketing", "Campaign planning, content calendar, social media"),
+        ("it-helpdesk", "IT Helpdesk", "🖥️", "IT", "Technical support, troubleshooting, ticket management"),
+        ("finance-agent", "Finance Advisor", "📊", "Finance", "Budget analysis, expense tracking, financial reports"),
+        ("legal-agent", "Legal Assistant", "⚖️", "Legal", "Contract review, compliance checks, legal research"),
+        ("project-manager", "Project Manager", "📋", "Management", "Task tracking, timeline management, status reports"),
+    ];
+    for (id, name, icon, cat, desc) in defaults {
+        data.gallery.push(AgentTemplate { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), system_prompt: String::new() });
+    }
+    true
+}
+
+// ─── Knowledge Base ──────────────────────────────────────────────────────────
+
 pub async fn portal_knowledge_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/knowledge/documents").await.into_response()
+    let data = load_data(&state);
+    let docs = &data.knowledge_docs;
+    let total_chunks: u32 = docs.iter().map(|d| d.chunks).sum();
+    Json(serde_json::json!({"ok":true, "documents": docs, "total_docs": docs.len(), "total_chunks": total_chunks})).into_response()
 }
+
 pub async fn portal_knowledge_upload(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/knowledge/documents", body).await.into_response()
+    let content = body["content"].as_str().unwrap_or("").to_string();
+    let name = body["name"].as_str().unwrap_or("Untitled").to_string();
+    if content.is_empty() { return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":"Content is required"}))).into_response(); }
+    let chunks = (content.len() / 500).max(1) as u32; // ~500 chars per chunk
+    let size_bytes = content.len() as u64;
+    let doc = KnowledgeDoc {
+        id: uuid::Uuid::new_v4().to_string(), tenant_id: String::new(), name, content, chunks, size_bytes,
+        created_at: crate::models::now_iso(),
+    };
+    let mut data = load_data(&state);
+    let id = doc.id.clone();
+    data.knowledge_docs.push(doc);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true, "id": id})).into_response()
 }
+
 pub async fn portal_knowledge_delete(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_delete(&state, &format!("/api/knowledge/documents/{}", id)).await.into_response()
+    let mut data = load_data(&state);
+    data.knowledge_docs.retain(|d| d.id != id);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true})).into_response()
 }
 
-// Tools
+// ─── Tools ───────────────────────────────────────────────────────────────────
+
 pub async fn portal_tools_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/tools").await.into_response()
+    let mut data = load_data(&state);
+    if seed_tools(&mut data) { let _ = save_data(&state, &data); }
+    Json(serde_json::json!({"tools": data.tools})).into_response()
 }
+
 pub async fn portal_tools_toggle(State(state): State<Arc<PortalState>>, Path(name): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, &format!("/api/tools/{}/toggle", name), body).await.into_response()
+    let mut data = load_data(&state);
+    if seed_tools(&mut data) { /* seeded */ }
+    let enabled = body["enabled"].as_bool().unwrap_or(false);
+    if let Some(tool) = data.tools.iter_mut().find(|t| t.name == name) {
+        tool.enabled = enabled;
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok":true, "name": name, "enabled": enabled})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Tool not found"}))).into_response()
+    }
 }
 
-// LLM Traces
+// ─── LLM Traces ──────────────────────────────────────────────────────────────
+
 pub async fn portal_traces(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/traces").await.into_response()
+    let data = load_data(&state);
+    Json(serde_json::json!({"traces": data.traces})).into_response()
 }
 
-// Cost Tracking
+// ─── Cost Tracking (aggregated from traces) ──────────────────────────────────
+
 pub async fn portal_cost(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/cost").await.into_response()
+    let data = load_data(&state);
+    let mut model_map: std::collections::HashMap<String, (u32, u32, f64)> = std::collections::HashMap::new();
+    for t in &data.traces {
+        let entry = model_map.entry(t.model.clone()).or_insert((0, 0, 0.0));
+        entry.0 += 1; // requests
+        entry.1 += t.prompt_tokens + t.completion_tokens; // tokens
+        entry.2 += t.cost; // cost
+    }
+    let total_cost: f64 = model_map.values().map(|v| v.2).sum();
+    let models: Vec<serde_json::Value> = model_map.iter().map(|(model, (reqs, tokens, cost))| {
+        let pct = if total_cost > 0.0 { cost / total_cost * 100.0 } else { 0.0 };
+        serde_json::json!({"model": model, "requests": reqs, "tokens": tokens, "cost": cost, "percentage": pct})
+    }).collect();
+    Json(serde_json::json!({"models": models, "total_cost": total_cost})).into_response()
 }
 
-// Activity Feed
+// ─── Activity Feed ───────────────────────────────────────────────────────────
+
 pub async fn portal_activity(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/activity").await.into_response()
+    let data = load_data(&state);
+    Json(serde_json::json!({"events": data.activity})).into_response()
 }
+
 pub async fn portal_activity_clear(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_delete(&state, "/api/activity").await.into_response()
+    let mut data = load_data(&state);
+    data.activity.clear();
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true})).into_response()
 }
 
-// API Keys
+// ─── API Keys ────────────────────────────────────────────────────────────────
+
 pub async fn portal_apikeys_list(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/apikeys").await.into_response()
+    let data = load_data(&state);
+    let keys: Vec<serde_json::Value> = data.api_keys.iter().map(|k| serde_json::json!({"id": k.id, "name": k.name, "prefix": k.key_prefix, "created_at": k.created_at})).collect();
+    Json(serde_json::json!({"keys": keys})).into_response()
 }
+
 pub async fn portal_apikeys_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/apikeys", body).await.into_response()
+    let name = body["name"].as_str().unwrap_or("Unnamed").to_string();
+    let raw_key = format!("pk_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
+    let prefix = format!("{}...", &raw_key[..12]);
+    let key = PortalApiKey {
+        id: uuid::Uuid::new_v4().to_string(), tenant_id: String::new(), name, key_hash: raw_key.clone(), key_prefix: prefix,
+        created_at: crate::models::now_iso(),
+    };
+    let mut data = load_data(&state);
+    data.api_keys.push(key);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true, "key": raw_key, "id": data.api_keys.last().map(|k| k.id.clone()).unwrap_or_default()})).into_response()
 }
+
 pub async fn portal_apikeys_delete(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_delete(&state, &format!("/api/apikeys/{}", id)).await.into_response()
+    let mut data = load_data(&state);
+    data.api_keys.retain(|k| k.id != id);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true})).into_response()
 }
 
-// Usage & Quotas
+// ─── Usage & Quotas (computed from PortalData) ───────────────────────────────
+
 pub async fn portal_usage(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/usage").await.into_response()
+    let data = load_data(&state);
+    let tokens_used: u32 = data.traces.iter().map(|t| t.prompt_tokens + t.completion_tokens).sum();
+    Json(serde_json::json!({
+        "agents_used": data.tenants.len(), "agents_max": 10,
+        "tokens_used": tokens_used, "tokens_max": 100000,
+        "requests_used": data.traces.len(), "requests_max": 10000,
+        "apikeys_used": data.api_keys.len(), "apikeys_max": 5
+    })).into_response()
 }
 
-// Org Map
+// ─── Org Map (computed from tenants) ─────────────────────────────────────────
+
 pub async fn portal_orgmap(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/orgmap").await.into_response()
+    let data = load_data(&state);
+    let nodes: Vec<serde_json::Value> = data.tenants.iter().map(|t| {
+        serde_json::json!({"id": t.id, "name": t.agent_name.as_deref().unwrap_or(&t.name), "icon": "🤖", "role": format!("{}", t.status), "type": "agent"})
+    }).collect();
+    Json(serde_json::json!({"nodes": nodes})).into_response()
 }
 
-// Kanban
+// ─── Kanban Board ────────────────────────────────────────────────────────────
+
 pub async fn portal_kanban(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/kanban").await.into_response()
+    let data = load_data(&state);
+    Json(serde_json::json!({"tasks": data.kanban_tasks})).into_response()
 }
+
 pub async fn portal_kanban_update(State(state): State<Arc<PortalState>>, Path(id): Path<String>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_put(&state, &format!("/api/kanban/{}", id), body).await.into_response()
+    let mut data = load_data(&state);
+    if let Some(task) = data.kanban_tasks.iter_mut().find(|t| t.id == id) {
+        if let Some(status) = body["status"].as_str() { task.status = status.to_string(); }
+        if let Some(title) = body["title"].as_str() { task.title = title.to_string(); }
+        let _ = save_data(&state, &data);
+        Json(serde_json::json!({"ok":true})).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"Task not found"}))).into_response()
+    }
 }
 
-// Gallery (Agent Templates)
+// ─── Gallery (Agent Templates) ───────────────────────────────────────────────
+
 pub async fn portal_gallery(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/gallery").await.into_response()
+    let mut data = load_data(&state);
+    if seed_gallery(&mut data) { let _ = save_data(&state, &data); }
+    Json(serde_json::json!({"templates": data.gallery})).into_response()
 }
 
-// Config File
+// ─── Config File ─────────────────────────────────────────────────────────────
+
 pub async fn portal_configfile(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/config").await.into_response()
-}
-pub async fn portal_configfile_save(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
-    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/config", body).await.into_response()
+    // Return a summary of portal config as editable text
+    let data = load_data(&state);
+    let config = format!(
+        "# Portal Configuration\n\n[portal]\ntenants_count = {}\nusers_count = {}\nchannels_count = {}\ntools_count = {}\nskills_count = {}\n\n[defaults]\nmax_messages_per_day = 1000\nmax_channels = 10\nmax_members = 50\n",
+        data.tenants.len(), data.users.len(), data.channel_instances.len(), data.tools.len(), data.skills.len()
+    );
+    Json(serde_json::json!({"content": config})).into_response()
 }
 
-// Orchestration (Delegation)
+pub async fn portal_configfile_save(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
+    if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
+    let _content = body["content"].as_str().unwrap_or("");
+    // Config is read-only for now (computed from PortalData)
+    Json(serde_json::json!({"ok":true})).into_response()
+}
+
+// ─── Orchestration (Delegation) ──────────────────────────────────────────────
+
 pub async fn portal_orchestration(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_get(&state, "/api/orchestration").await.into_response()
+    let data = load_data(&state);
+    let links = vec![
+        serde_json::json!({"name":"delegate","desc":"Agent-to-agent delegate","enabled":true}),
+        serde_json::json!({"name":"handoff","desc":"Agent-to-agent handoff","enabled":true}),
+        serde_json::json!({"name":"broadcast","desc":"Agent-to-agent broadcast","enabled":true}),
+        serde_json::json!({"name":"escalate","desc":"Agent-to-agent escalate","enabled":true}),
+    ];
+    Json(serde_json::json!({"delegations": data.delegations, "links": links})).into_response()
 }
+
 pub async fn portal_orchestration_create(State(state): State<Arc<PortalState>>, headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     if extract_session(&headers).is_none() { return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error":"Unauthorized"}))).into_response(); }
-    proxy_post(&state, "/api/orchestration", body).await.into_response()
+    let from = body["from_agent"].as_str().unwrap_or("").to_string();
+    let to = body["to_agent"].as_str().unwrap_or("").to_string();
+    let link_type = body["link_type"].as_str().unwrap_or("delegate").to_string();
+    let delegation = Delegation { id: uuid::Uuid::new_v4().to_string(), from_agent: from, to_agent: to, link_type, enabled: true };
+    let mut data = load_data(&state);
+    data.delegations.push(delegation);
+    let _ = save_data(&state, &data);
+    Json(serde_json::json!({"ok":true})).into_response()
 }
