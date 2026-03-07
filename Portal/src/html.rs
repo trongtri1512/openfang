@@ -32,7 +32,7 @@ body{font-family:'Inter',system-ui,sans-serif;margin:0;min-height:100vh;backgrou
 .td span{width:10px;height:10px;border-radius:50%}
 .td span:nth-child(1){background:#ff5f57}.td span:nth-child(2){background:#febc2e}.td span:nth-child(3){background:#28c840}
 .td-title{margin-left:12px;font-size:.7rem;color:#64748b;font-family:'JetBrains Mono',monospace}
-.tcd{padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:2;color:#64748b;min-height:180px}
+.tcd{padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:2;color:#64748b;height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent}
 .tcd .line{opacity:0;white-space:nowrap;overflow:hidden}
 .tcd .line.visible{opacity:1;animation:fadeInUp .3s ease}
 .tcd .prompt{color:#a78bfa}.tcd .cmd{color:#22d3ee}.tcd .ok{color:#4ade80}.tcd .warn{color:#fbbf24}.tcd .info{color:#94a3b8}
@@ -1598,6 +1598,7 @@ function typeTerminal(){
     const div=document.createElement('div');
     div.className='line visible';
     el.appendChild(div);
+    el.scrollTop=el.scrollHeight;
     let charIdx=0;
     const speed=ln.type==='cmd'?60:20;
     function typeChar(){
