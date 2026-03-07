@@ -993,68 +993,89 @@ function renderWiki(){
 }
 
 // ─── Ads Dashboard ───────────────────────────────────────────────────────────
-let _adsTab='dashboard';
+let _adsTab='dashboard',_adsPlatform='all';
+const ADS_PLATFORMS=[
+  {id:'google',icon:'🔍',name:'Google Ads',color:'#4285F4',connector:'Native (miễn phí)',key:'ads_embed_google',setup:'Looker Studio → Add Data → Google Ads → Chọn tài khoản → Done'},
+  {id:'facebook',icon:'📘',name:'Facebook Ads',color:'#1877F2',connector:'Supermetrics / Adveronix',key:'ads_embed_facebook',setup:'Looker Studio → Add Data → Community Connector → Supermetrics → Facebook Ads'},
+  {id:'tiktok',icon:'🎵',name:'TikTok Ads',color:'#000000',connector:'Coupler.io / Porter Metrics',key:'ads_embed_tiktok',setup:'Looker Studio → Add Data → Community Connector → Coupler.io → TikTok Ads'}
+];
+function _adsTabBtn(id,label){return `<button onclick="_adsTab='${id}';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab===id?'600':'500'};color:${_adsTab===id?'var(--o)':'var(--d)'};border-bottom:${_adsTab===id?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">${label}</button>`}
 function renderAdsDashboard(){
-  const tabs=`<div style="display:flex;gap:0;border-bottom:1px solid var(--b);margin-bottom:20px">
-    <button onclick="_adsTab='dashboard';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab==='dashboard'?'600':'500'};color:${_adsTab==='dashboard'?'var(--o)':'var(--d)'};border-bottom:${_adsTab==='dashboard'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Dashboard</button>
-    <button onclick="_adsTab='setup';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab==='setup'?'600':'500'};color:${_adsTab==='setup'?'var(--o)':'var(--d)'};border-bottom:${_adsTab==='setup'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Hướng dẫn kết nối</button>
-    <button onclick="_adsTab='kpi';renderAdsDashboard()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_adsTab==='kpi'?'600':'500'};color:${_adsTab==='kpi'?'var(--o)':'var(--d)'};border-bottom:${_adsTab==='kpi'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Cảnh báo KPI</button>
-  </div>`;
-
+  const tabs=`<div style="display:flex;gap:0;border-bottom:1px solid var(--b);margin-bottom:20px">${_adsTabBtn('dashboard','Dashboard')}${_adsTabBtn('setup','Hướng dẫn kết nối')}${_adsTabBtn('kpi','Cảnh báo KPI')}${_adsTabBtn('export','Xuất dữ liệu')}</div>`;
   if(_adsTab==='setup'){
     document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
-      <div class="sbox"><h3 style="margin-bottom:12px">🔗 Google Ads</h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Mở <a href="https://lookerstudio.google.com" target="_blank" style="color:var(--o)">Looker Studio</a> → Add Data → Google Ads</div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Chọn tài khoản Google Ads → Cấp quyền → Connector tích hợp sẵn (miễn phí)</div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Chọn metrics: Cost, Clicks, Impressions, CTR, CPC, Conversions</div>
+      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">📋 Quy trình 4 bước</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <div style="flex:1;min-width:130px;padding:12px;border:1px solid var(--b);border-radius:10px;text-align:center"><div style="font-size:1.5rem">1️⃣</div><div style="font-size:.78rem;font-weight:600;margin-top:4px">Tạo Dashboard</div><div style="font-size:.68rem;color:var(--d)">lookerstudio.google.com</div></div>
+          <div style="flex:1;min-width:130px;padding:12px;border:1px solid var(--b);border-radius:10px;text-align:center"><div style="font-size:1.5rem">2️⃣</div><div style="font-size:.78rem;font-weight:600;margin-top:4px">Kết nối Ads</div><div style="font-size:.68rem;color:var(--d)">Connector từng nền tảng</div></div>
+          <div style="flex:1;min-width:130px;padding:12px;border:1px solid var(--b);border-radius:10px;text-align:center"><div style="font-size:1.5rem">3️⃣</div><div style="font-size:.78rem;font-weight:600;margin-top:4px">Chọn Metrics</div><div style="font-size:.68rem;color:var(--d)">CPC, CTR, Cost, Reach</div></div>
+          <div style="flex:1;min-width:130px;padding:12px;border:1px solid var(--b);border-radius:10px;text-align:center"><div style="font-size:1.5rem">4️⃣</div><div style="font-size:.78rem;font-weight:600;margin-top:4px">Embed vào Portal</div><div style="font-size:.68rem;color:var(--d)">File → Embed Report</div></div>
+        </div></div>
+      <div class="sbox"><h3 style="margin-bottom:12px">🔍 Google Ads <span style="font-size:.7rem;padding:2px 8px;background:#e8f5e9;color:#2e7d32;border-radius:10px;font-weight:600">MIỄN PHÍ</span></h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Mở <a href="https://lookerstudio.google.com" target="_blank" style="color:var(--o)">lookerstudio.google.com</a> → Create → Report</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Add Data → chọn <b>Google Ads</b> (built-in) → Chọn tài khoản</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Kéo metrics: <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">Cost, Clicks, Impressions, CTR, CPC, Conversions</code></div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>4.</b> Thêm <b>Date Range Control</b> → Data auto cập nhật realtime</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>5.</b> File → Embed Report → Copy URL → Dán vào tab Dashboard</div>
       </div></div>
-      <div class="sbox"><h3 style="margin-bottom:12px">📘 Facebook Ads</h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Cài connector: <a href="https://supermetrics.com" target="_blank" style="color:var(--o)">Supermetrics</a> hoặc <b>Adveronix</b> (free tier)</div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Kết nối Facebook Business Manager → Cấp quyền đọc Ads</div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Chọn breakdown: Age, Gender, Placement → Vẽ biểu đồ phân tích</div>
+      <div class="sbox"><h3 style="margin-bottom:12px">📘 Facebook Ads <span style="font-size:.7rem;padding:2px 8px;background:#e3f2fd;color:#1565c0;border-radius:10px;font-weight:600">CẦN CONNECTOR</span></h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Cài <a href="https://supermetrics.com" target="_blank" style="color:var(--o)">Supermetrics</a> (14 ngày trial free) hoặc <a href="https://adveronix.com" target="_blank" style="color:var(--o)">Adveronix</a></div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Looker Studio → Add Data → Community Connector → Supermetrics → Facebook Ads</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Đăng nhập FB Business Manager → Cấp quyền đọc Ad Account</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>4.</b> Breakdown: <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">Age, Gender, Placement</code> → Biểu đồ phân tích</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>5.</b> Data auto cập nhật mỗi <b>1-24h</b> tuỳ gói. Embed vào Portal.</div>
       </div></div>
-      <div class="sbox"><h3 style="margin-bottom:12px">🎵 TikTok Ads</h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Cài connector: <a href="https://coupler.io" target="_blank" style="color:var(--o)">Coupler.io</a>, <b>Catchr</b>, hoặc <b>Porter Metrics</b></div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> Kết nối TikTok Ads Manager → API access token</div>
-        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Xuất data về Google Sheet hoặc trực tiếp Looker Studio</div>
+      <div class="sbox"><h3 style="margin-bottom:12px">🎵 TikTok Ads <span style="font-size:.7rem;padding:2px 8px;background:#fce4ec;color:#c62828;border-radius:10px;font-weight:600">CẦN CONNECTOR</span></h3><div style="display:grid;gap:8px;font-size:.85rem;color:var(--d)">
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>1.</b> Dùng <a href="https://coupler.io" target="_blank" style="color:var(--o)">Coupler.io</a> hoặc <a href="https://portermetrics.com" target="_blank" style="color:var(--o)">Porter Metrics</a></div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>2.</b> TikTok Ads Manager → tạo API Access Token → dán vào connector</div>
+        <div style="padding:10px;border:1px solid var(--b);border-radius:8px"><b>3.</b> Coupler.io xuất data → Google Sheet → Looker Studio (auto sync 1-2h)</div>
       </div></div>
-      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">💡 Datapot.vn</h3><p style="font-size:.85rem;color:var(--d)">Công cụ VN chuyên xuất báo cáo Facebook/TikTok/Google Ads. Link: <a href="https://datapot.vn" target="_blank" style="color:var(--o)">datapot.vn</a></p></div>
+      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">💡 Datapot.vn</h3><p style="font-size:.85rem;color:var(--d)">Công cụ VN xuất báo cáo đa nền tảng. <a href="https://datapot.vn" target="_blank" style="color:var(--o)">datapot.vn</a></p></div>
     </div>`;return;
   }
-
   if(_adsTab==='kpi'){
     document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
       <div class="sbox" style="border-left:3px solid var(--r)"><h3 style="margin-bottom:8px">🚨 Cảnh báo chiến dịch kém hiệu quả</h3>
-        <p style="font-size:.85rem;color:var(--d);margin-bottom:12px">Thiết lập ngưỡng cảnh báo. Khi chiến dịch vượt ngưỡng, hệ thống sẽ gửi thông báo.</p>
+        <p style="font-size:.85rem;color:var(--d);margin-bottom:12px">Thiết lập ngưỡng cảnh báo. Khi chiến dịch vượt ngưỡng, hệ thống gửi thông báo.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">CPC tối đa</div><div style="font-size:1.5rem;font-weight:700;color:var(--r)">15,000₫</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo nếu CPC > 15k</div></div>
           <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">CTR tối thiểu</div><div style="font-size:1.5rem;font-weight:700;color:var(--o)">1.5%</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo nếu CTR < 1.5%</div></div>
           <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Chi phí/ngày max</div><div style="font-size:1.5rem;font-weight:700;color:var(--r)">5,000,000₫</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo vượt budget</div></div>
           <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">ROAS tối thiểu</div><div style="font-size:1.5rem;font-weight:700;color:var(--o)">3.0x</div><div style="font-size:.7rem;color:var(--d)">Cảnh báo nếu ROAS < 3x</div></div>
         </div>
-        <div style="margin-top:16px;padding:12px;background:var(--bg2);border-radius:8px;font-size:.8rem;color:var(--d)">💡 <b>Tự động hoá:</b> Tạo <b>Workflow</b> (Agent Prompt → phân tích data → Email cảnh báo) + <b>Scheduler</b> chạy mỗi giờ để phát hiện chiến dịch kém.</div>
-      </div>
+        <div style="margin-top:16px;padding:12px;background:var(--bg2);border-radius:8px;font-size:.8rem;color:var(--d)">💡 <b>Tự động hoá:</b> Tạo <b>Workflow</b> (Agent → phân tích data → Email cảnh báo) + <b>Scheduler</b> chạy mỗi giờ.</div>
+      </div></div>`;return;
+  }
+  if(_adsTab==='export'){
+    document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
+      <div class="sbox"><h3 style="margin-bottom:12px">📥 Xuất dữ liệu quảng cáo</h3>
+        <div style="display:grid;gap:12px">
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;display:flex;align-items:center;gap:12px"><div style="font-size:1.5rem">🔍</div><div style="flex:1"><b>Google Ads</b><br><span style="font-size:.8rem;color:var(--d)">Reports → Download CSV/Excel hoặc Google Ads API</span></div><a href="https://ads.google.com" target="_blank" class="btn-o" style="font-size:.75rem;text-decoration:none">Mở</a></div>
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;display:flex;align-items:center;gap:12px"><div style="font-size:1.5rem">📘</div><div style="flex:1"><b>Facebook Ads</b><br><span style="font-size:.8rem;color:var(--d)">Ads Manager → Reporting → Export CSV</span></div><a href="https://adsmanager.facebook.com" target="_blank" class="btn-o" style="font-size:.75rem;text-decoration:none">Mở</a></div>
+          <div style="padding:16px;border:1px solid var(--b);border-radius:12px;display:flex;align-items:center;gap:12px"><div style="font-size:1.5rem">🎵</div><div style="flex:1"><b>TikTok Ads</b><br><span style="font-size:.8rem;color:var(--d)">Ads Manager → Custom Reports → Export CSV</span></div><a href="https://ads.tiktok.com" target="_blank" class="btn-o" style="font-size:.75rem;text-decoration:none">Mở</a></div>
+        </div></div>
+      <div class="sbox" style="border-left:3px solid var(--o)"><h3 style="margin-bottom:8px">🔄 Tự động xuất với Coupler.io</h3><p style="font-size:.85rem;color:var(--d)">Dùng <a href="https://coupler.io" target="_blank" style="color:var(--o)">Coupler.io</a> tự động xuất data FB/TikTok/Google → Google Sheet mỗi 1-2h. Looker Studio đọc từ Sheet → Dashboard luôn cập nhật.</p></div>
     </div>`;return;
   }
-
-  // Dashboard tab (default)
-  const savedUrl=localStorage.getItem('ads_embed_url')||'';
-  document.getElementById('mainContent').innerHTML=tabs+`<div style="display:grid;gap:16px">
-    <div class="sbox"><h3 style="margin-bottom:12px">📊 Embed Looker Studio Dashboard</h3>
-      <div style="display:flex;gap:8px;margin-bottom:12px"><input id="adsEmbedUrl" type="text" value="${savedUrl}" placeholder="Dán embed URL từ Looker Studio (File → Embed Report → Copy link)" style="flex:1;padding:10px;border:1px solid var(--b);border-radius:8px;font-family:inherit;font-size:.85rem">
-      <button class="btn-o" onclick="const u=document.getElementById('adsEmbedUrl').value.trim();if(u){localStorage.setItem('ads_embed_url',u);renderAdsDashboard()}">Lưu & Hiển thị</button></div>
-      ${savedUrl?`<iframe src="${savedUrl}" width="100%" height="600" style="border:1px solid var(--b);border-radius:12px" allowfullscreen></iframe>`:`<div style="text-align:center;padding:48px;border:2px dashed var(--b);border-radius:12px;color:var(--d)">
-        <div style="font-size:2rem;margin-bottom:12px">📈</div>
-        <p style="font-size:.85rem">Chưa có dashboard. Vào tab <b>Hướng dẫn kết nối</b> để setup Looker Studio, sau đó dán embed link ở trên.</p>
-      </div>`}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
-      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Facebook Ads</div><div style="font-size:1.2rem">📘</div><div style="font-size:.75rem;color:var(--d)">Supermetrics / Adveronix</div></div>
-      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">TikTok Ads</div><div style="font-size:1.2rem">🎵</div><div style="font-size:.75rem;color:var(--d)">Coupler.io / Porter</div></div>
-      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Google Ads</div><div style="font-size:1.2rem">🔍</div><div style="font-size:.75rem;color:var(--d)">Native connector</div></div>
-      <div style="padding:16px;border:1px solid var(--b);border-radius:12px;text-align:center"><div style="font-size:.7rem;color:var(--m);text-transform:uppercase;margin-bottom:4px">Datapot.vn</div><div style="font-size:1.2rem">🇻🇳</div><div style="font-size:.75rem;color:var(--d)">Báo cáo đa nền tảng</div></div>
-    </div>
+  // Dashboard tab — multi-platform embeds
+  const platformPills=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+    <button onclick="_adsPlatform='all';renderAdsDashboard()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${_adsPlatform==='all'?'var(--o)':'var(--b)'};background:${_adsPlatform==='all'?'var(--o)':'var(--bg)'};color:${_adsPlatform==='all'?'#fff':'var(--d)'}">Tổng hợp</button>
+    ${ADS_PLATFORMS.map(p=>`<button onclick="_adsPlatform='${p.id}';renderAdsDashboard()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid ${_adsPlatform===p.id?p.color:'var(--b)'};background:${_adsPlatform===p.id?p.color:'var(--bg)'};color:${_adsPlatform===p.id?'#fff':'var(--d)'}">${p.icon} ${p.name}</button>`).join('')}
   </div>`;
+  const platforms=_adsPlatform==='all'?ADS_PLATFORMS:ADS_PLATFORMS.filter(p=>p.id===_adsPlatform);
+  const cards=platforms.map(p=>{const url=localStorage.getItem(p.key)||'';
+    return `<div style="border:1px solid var(--b);border-radius:12px;overflow:hidden;background:var(--bg)">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--b);display:flex;justify-content:space-between;align-items:center;background:var(--bg2)">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.2rem">${p.icon}</span><b>${p.name}</b><span style="font-size:.7rem;padding:2px 8px;border-radius:10px;background:${url?'var(--gb)':'var(--rb)'};color:${url?'var(--gt)':'var(--rt)'};font-weight:600">${url?'Connected':'Chưa kết nối'}</span></div>
+        <div style="font-size:.7rem;color:var(--m)">${p.connector}</div></div>
+      <div style="padding:16px"><div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="ads_url_${p.id}" type="text" value="${url}" placeholder="Dán Looker Studio embed URL cho ${p.name}..." style="flex:1;padding:8px 12px;border:1px solid var(--b);border-radius:8px;font-family:inherit;font-size:.8rem">
+        <button class="btn-o" style="font-size:.75rem;white-space:nowrap" onclick="const u=document.getElementById('ads_url_${p.id}').value.trim();localStorage.setItem('${p.key}',u);renderAdsDashboard()">Lưu</button>
+        ${url?`<button class="btn-r" style="font-size:.7rem" onclick="localStorage.removeItem('${p.key}');renderAdsDashboard()">Xóa</button>`:''}</div>
+        ${url?`<iframe src="${url}" width="100%" height="450" style="border:1px solid var(--b);border-radius:8px" allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>`:`<div style="text-align:center;padding:32px;border:2px dashed var(--b);border-radius:8px;color:var(--d)"><div style="font-size:1.5rem;margin-bottom:8px">${p.icon}</div><p style="font-size:.8rem;margin-bottom:4px">Chưa kết nối ${p.name}</p><p style="font-size:.7rem;color:var(--m)">${p.setup}</p><button class="btn-g" style="margin-top:8px;font-size:.75rem" onclick="_adsTab='setup';renderAdsDashboard()">Xem hướng dẫn</button></div>`}
+      </div></div>`;}).join('');
+  const cc=ADS_PLATFORMS.filter(p=>localStorage.getItem(p.key)).length;
+  document.getElementById('mainContent').innerHTML=tabs+`<div class="sr"><span class="sl">Nền tảng: <span class="sv">${cc}</span> / ${ADS_PLATFORMS.length} đã kết nối</span><span class="sl" style="font-size:.75rem;color:var(--m)">Data tự cập nhật theo Looker Studio (1-24h)</span></div>${platformPills}<div style="display:grid;gap:16px">${cards}</div>`;
 }
 
 // ─── KOL / KOC CRM ──────────────────────────────────────────────────────────
