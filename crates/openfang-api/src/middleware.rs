@@ -82,33 +82,31 @@ pub async fn auth(
     mut request: Request<Body>,
     next: Next,
 ) -> Response<Body> {
+<<<<<<< HEAD
     let has_global_key = !config.global_api_key.is_empty();
     let has_user_keys = config.kernel.auth.is_enabled();
 
     // If no API key configured AND no per-user keys, restrict to loopback addresses only.
     if !has_global_key && !has_user_keys {
+=======
+    // If no API key configured, skip authentication entirely (open access).
+    if api_key.is_empty() {
+        return next.run(request).await;
+    }
+
+    // Shutdown is loopback-only (CLI on same machine) — skip token auth
+    let path = request.uri().path();
+    if path == "/api/shutdown" {
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
         let is_loopback = request
             .extensions()
             .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
             .map(|ci| ci.0.ip().is_loopback())
-            .unwrap_or(false);
-
-        if !is_loopback {
-            tracing::warn!(
-                "Rejected non-localhost request: no API key configured. \
-                 Set api_key in config.toml for remote access."
-            );
-            return Response::builder()
-                .status(StatusCode::FORBIDDEN)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "error": "No API key configured. Remote access denied. Configure api_key in ~/.openfang/config.toml"
-                    })
-                    .to_string(),
-                ))
-                .unwrap_or_default();
+            .unwrap_or(true); // default true for unix sockets / tests
+        if is_loopback {
+            return next.run(request).await;
         }
+<<<<<<< HEAD
 
         // Loopback with no auth → treat as owner
         request.extensions_mut().insert(AuthenticatedUser {
@@ -116,10 +114,11 @@ pub async fn auth(
             role: "owner".to_string(),
         });
         return next.run(request).await;
+=======
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
     }
 
     // Public endpoints that don't require auth (dashboard needs these)
-    let path = request.uri().path();
     if path == "/"
         || path == "/logo.png"
         || path == "/favicon.ico"
@@ -282,6 +281,10 @@ pub async fn security_headers(request: Request<Body>, next: Next) -> Response<Bo
     headers.insert(
         "cache-control",
         "no-store, no-cache, must-revalidate".parse().unwrap(),
+    );
+    headers.insert(
+        "strict-transport-security",
+        "max-age=63072000; includeSubDomains".parse().unwrap(),
     );
     response
 }

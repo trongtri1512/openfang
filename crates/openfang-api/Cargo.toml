@@ -33,12 +33,16 @@ governor = { workspace = true }
 tokio-stream = { workspace = true }
 subtle = { workspace = true }
 base64 = { workspace = true }
+<<<<<<< HEAD
 reqwest = { workspace = true }
 tokio-postgres = { workspace = true }
 deadpool-postgres = { workspace = true }
+=======
+socket2 = { workspace = true }
+reqwest = { workspace = true }
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
 
 [dev-dependencies]
 tokio-test = { workspace = true }
-reqwest = { workspace = true }
 tempfile = { workspace = true }
 uuid = { workspace = true }

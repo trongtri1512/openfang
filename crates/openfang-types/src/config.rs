@@ -4,6 +4,26 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// Deserialize a `Vec<String>` that tolerates both string and integer elements.
+///
+/// When channel configs are saved from the web dashboard, numeric IDs (e.g. Discord
+/// guild snowflakes, Telegram user IDs) are stored as TOML integers. This helper
+/// transparently converts integers back to strings so deserialization never fails.
+fn deserialize_string_or_int_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values: Vec<serde_json::Value> = serde::Deserialize::deserialize(deserializer)?;
+    Ok(values
+        .into_iter()
+        .map(|v| match v {
+            serde_json::Value::String(s) => s,
+            serde_json::Value::Number(n) => n.to_string(),
+            other => other.to_string(),
+        })
+        .collect())
+}
+
 /// DM (direct message) policy for a channel.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1168,7 +1188,7 @@ fn default_language() -> String {
 
 impl Default for KernelConfig {
     fn default() -> Self {
-        let home_dir = dirs_next_home().join(".openfang");
+        let home_dir = openfang_home_dir();
         Self {
             data_dir: home_dir.join("data"),
             home_dir,
@@ -1308,9 +1328,16 @@ impl std::fmt::Debug for KernelConfig {
     }
 }
 
-/// Fallback home directory resolution.
-fn dirs_next_home() -> PathBuf {
-    dirs::home_dir().unwrap_or_else(std::env::temp_dir)
+/// Resolve the OpenFang home directory.
+///
+/// Priority: `OPENFANG_HOME` env var > `~/.openfang`.
+fn openfang_home_dir() -> PathBuf {
+    if let Ok(home) = std::env::var("OPENFANG_HOME") {
+        return PathBuf::from(home);
+    }
+    dirs::home_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join(".openfang")
 }
 
 /// Default LLM model configuration.
@@ -1526,7 +1553,9 @@ pub struct TelegramConfig {
     /// Env var name holding the bot token (NOT the token itself).
     pub bot_token_env: String,
     /// Telegram user IDs allowed to interact (empty = allow all).
-    pub allowed_users: Vec<i64>,
+    /// Accepts strings for consistency; numeric TOML integers are coerced to strings.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
+    pub allowed_users: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
     /// Polling interval in seconds.
@@ -1556,7 +1585,11 @@ pub struct DiscordConfig {
     pub bot_token_env: String,
     /// Guild (server) IDs allowed to interact (empty = allow all).
     /// Accepts strings for consistency with other channel configs.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_guilds: Vec<String>,
+    /// User IDs allowed to interact (empty = allow all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
+    pub allowed_users: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
     /// Gateway intents bitmask (default: 37376 = GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT).
@@ -1571,6 +1604,7 @@ impl Default for DiscordConfig {
         Self {
             bot_token_env: "DISCORD_BOT_TOKEN".to_string(),
             allowed_guilds: vec![],
+            allowed_users: vec![],
             default_agent: None,
             intents: 37376,
             overrides: ChannelOverrides::default(),
@@ -1587,6 +1621,7 @@ pub struct SlackConfig {
     /// Env var name holding the bot token (xoxb-) for REST API.
     pub bot_token_env: String,
     /// Channel IDs allowed to interact (empty = allow all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_channels: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1623,6 +1658,7 @@ pub struct WhatsAppConfig {
     /// When set, outgoing messages are routed through the gateway instead of Cloud API.
     pub gateway_url_env: String,
     /// Allowed phone numbers (empty = allow all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_users: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1691,6 +1727,7 @@ pub struct SignalConfig {
     /// Registered phone number.
     pub phone_number: String,
     /// Allowed phone numbers (empty = allow all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_users: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1722,6 +1759,7 @@ pub struct MatrixConfig {
     /// Env var name holding the access token.
     pub access_token_env: String,
     /// Room IDs to listen in (empty = all joined rooms).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_rooms: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1762,8 +1800,10 @@ pub struct EmailConfig {
     /// Poll interval in seconds.
     pub poll_interval_secs: u64,
     /// IMAP folders to monitor.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub folders: Vec<String>,
     /// Only process emails from these senders (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_senders: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1801,6 +1841,7 @@ pub struct TeamsConfig {
     /// Port for the incoming webhook.
     pub webhook_port: u16,
     /// Allowed tenant IDs (empty = allow all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_tenants: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1831,6 +1872,7 @@ pub struct MattermostConfig {
     /// Env var name holding the bot token.
     pub token_env: String,
     /// Allowed channel IDs (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_channels: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1864,6 +1906,7 @@ pub struct IrcConfig {
     /// Env var name holding the server password (optional).
     pub password_env: Option<String>,
     /// Channels to join (e.g., `["#openfang", "#general"]`).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub channels: Vec<String>,
     /// Use TLS (requires tokio-native-tls).
     pub use_tls: bool,
@@ -1896,6 +1939,7 @@ pub struct GoogleChatConfig {
     /// Env var name holding the service account JSON key.
     pub service_account_env: String,
     /// Space IDs to listen in.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub space_ids: Vec<String>,
     /// Port for the incoming webhook.
     pub webhook_port: u16,
@@ -1925,6 +1969,7 @@ pub struct TwitchConfig {
     /// Env var name holding the OAuth token.
     pub oauth_token_env: String,
     /// Twitch channels to join (without #).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub channels: Vec<String>,
     /// Bot nickname.
     pub nick: String,
@@ -1958,6 +2003,7 @@ pub struct RocketChatConfig {
     /// User ID for the bot.
     pub user_id: String,
     /// Allowed channel IDs (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_channels: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -1990,6 +2036,7 @@ pub struct ZulipConfig {
     /// Env var name holding the API key.
     pub api_key_env: String,
     /// Streams to listen in.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub streams: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2024,6 +2071,7 @@ pub struct XmppConfig {
     /// XMPP server port.
     pub port: u16,
     /// MUC rooms to join.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub rooms: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2148,6 +2196,7 @@ pub struct RedditConfig {
     /// Env var name holding the bot password.
     pub password_env: String,
     /// Subreddits to monitor.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub subreddits: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2291,6 +2340,7 @@ pub struct NextcloudConfig {
     /// Env var name holding the auth token.
     pub token_env: String,
     /// Room tokens to listen in (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_rooms: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2318,6 +2368,7 @@ pub struct GuildedConfig {
     /// Env var name holding the bot token.
     pub bot_token_env: String,
     /// Server IDs to listen in (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub server_ids: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2346,6 +2397,7 @@ pub struct KeybaseConfig {
     /// Env var name holding the paper key.
     pub paperkey_env: String,
     /// Team names to listen in (empty = all DMs).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_teams: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2402,6 +2454,7 @@ pub struct NostrConfig {
     /// Env var name holding the private key (nsec or hex).
     pub private_key_env: String,
     /// Relay URLs to connect to.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub relays: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2428,6 +2481,7 @@ pub struct WebexConfig {
     /// Env var name holding the bot token.
     pub bot_token_env: String,
     /// Room IDs to listen in (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_rooms: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2508,6 +2562,7 @@ pub struct TwistConfig {
     /// Workspace ID.
     pub workspace_id: String,
     /// Channel IDs to listen in (empty = all).
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub allowed_channels: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,
@@ -2605,6 +2660,7 @@ pub struct DiscourseConfig {
     /// API username.
     pub api_username: String,
     /// Category slugs to monitor.
+    #[serde(default, deserialize_with = "deserialize_string_or_int_vec")]
     pub categories: Vec<String>,
     /// Default agent name to route messages to.
     pub default_agent: Option<String>,

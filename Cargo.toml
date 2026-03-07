@@ -18,7 +18,11 @@ members = [
 ]
 
 [workspace.package]
+<<<<<<< HEAD
 version = "0.3.12"
+=======
+version = "0.3.26"
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/RightNow-AI/openfang"
@@ -121,8 +125,14 @@ colored = "3"
 aes-gcm = "0.10"
 argon2 = "0.5"
 
+# HTML entity decoding
+html-escape = "0.2"
+
 # Lightweight regex
 regex-lite = "0.1"
+
+# Socket options (SO_REUSEADDR)
+socket2 = "0.5"
 
 # Zip archive extraction
 zip = { version = "2", default-features = false, features = ["deflate"] }

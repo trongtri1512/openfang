@@ -14,11 +14,18 @@ pub mod openai;
 use crate::llm_driver::{DriverConfig, LlmDriver, LlmError};
 use openfang_types::model_catalog::{
     AI21_BASE_URL, ANTHROPIC_BASE_URL, CEREBRAS_BASE_URL, COHERE_BASE_URL, DEEPSEEK_BASE_URL,
-    FIREWORKS_BASE_URL, GEMINI_BASE_URL, GROQ_BASE_URL, HUGGINGFACE_BASE_URL, LMSTUDIO_BASE_URL,
+    FIREWORKS_BASE_URL, GEMINI_BASE_URL, GROQ_BASE_URL, HUGGINGFACE_BASE_URL, LEMONADE_BASE_URL,
+    LMSTUDIO_BASE_URL,
     MINIMAX_BASE_URL, MISTRAL_BASE_URL, MOONSHOT_BASE_URL, OLLAMA_BASE_URL, OPENAI_BASE_URL,
     OPENROUTER_BASE_URL, PERPLEXITY_BASE_URL, QIANFAN_BASE_URL, QWEN_BASE_URL,
+<<<<<<< HEAD
     REPLICATE_BASE_URL, SAMBANOVA_BASE_URL, TOGETHER_BASE_URL, VLLM_BASE_URL, VOLCENGINE_BASE_URL,
     XAI_BASE_URL, ZHIPU_BASE_URL, ZHIPU_CODING_BASE_URL,
+=======
+    REPLICATE_BASE_URL, SAMBANOVA_BASE_URL, TOGETHER_BASE_URL, VENICE_BASE_URL, VLLM_BASE_URL,
+    VOLCENGINE_BASE_URL, VOLCENGINE_CODING_BASE_URL, XAI_BASE_URL, ZAI_BASE_URL,
+    ZAI_CODING_BASE_URL, ZHIPU_BASE_URL, ZHIPU_CODING_BASE_URL,
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
 };
 use std::sync::Arc;
 
@@ -86,6 +93,11 @@ fn provider_defaults(provider: &str) -> Option<ProviderDefaults> {
         "lmstudio" => Some(ProviderDefaults {
             base_url: LMSTUDIO_BASE_URL,
             api_key_env: "LMSTUDIO_API_KEY",
+            key_required: false,
+        }),
+        "lemonade" => Some(ProviderDefaults {
+            base_url: LEMONADE_BASE_URL,
+            api_key_env: "LEMONADE_API_KEY",
             key_required: false,
         }),
         "perplexity" => Some(ProviderDefaults {
@@ -168,6 +180,16 @@ fn provider_defaults(provider: &str) -> Option<ProviderDefaults> {
             api_key_env: "ZHIPU_API_KEY",
             key_required: true,
         }),
+        "zai" => Some(ProviderDefaults {
+            base_url: ZAI_BASE_URL,
+            api_key_env: "ZHIPU_API_KEY",
+            key_required: true,
+        }),
+        "zai_coding" => Some(ProviderDefaults {
+            base_url: ZAI_CODING_BASE_URL,
+            api_key_env: "ZHIPU_API_KEY",
+            key_required: true,
+        }),
         "qianfan" | "baidu" => Some(ProviderDefaults {
             base_url: QIANFAN_BASE_URL,
             api_key_env: "QIANFAN_API_KEY",
@@ -178,6 +200,19 @@ fn provider_defaults(provider: &str) -> Option<ProviderDefaults> {
             api_key_env: "VOLCENGINE_API_KEY",
             key_required: true,
         }),
+<<<<<<< HEAD
+=======
+        "volcengine_coding" => Some(ProviderDefaults {
+            base_url: VOLCENGINE_CODING_BASE_URL,
+            api_key_env: "VOLCENGINE_API_KEY",
+            key_required: true,
+        }),
+        "venice" => Some(ProviderDefaults {
+            base_url: VENICE_BASE_URL,
+            api_key_env: "VENICE_API_KEY",
+            key_required: true,
+        }),
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
         _ => None,
     }
 }
@@ -329,7 +364,7 @@ pub fn create_driver(config: &DriverConfig) -> Result<Arc<dyn LlmDriver>, LlmErr
             "Unknown provider '{}'. Supported: anthropic, gemini, openai, groq, openrouter, \
              deepseek, together, mistral, fireworks, ollama, vllm, lmstudio, perplexity, \
              cohere, ai21, cerebras, sambanova, huggingface, xai, replicate, github-copilot, \
-             codex, claude-code. Or set base_url for a custom OpenAI-compatible endpoint.",
+             venice, codex, claude-code. Or set base_url for a custom OpenAI-compatible endpoint.",
             provider
         ),
     })
@@ -366,6 +401,10 @@ pub fn known_providers() -> &'static [&'static str] {
         "zhipu_coding",
         "qianfan",
         "volcengine",
+<<<<<<< HEAD
+=======
+        "venice",
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
         "codex",
         "claude-code",
     ]
@@ -461,10 +500,15 @@ mod tests {
         assert!(providers.contains(&"zhipu"));
         assert!(providers.contains(&"zhipu_coding"));
         assert!(providers.contains(&"qianfan"));
+        assert!(providers.contains(&"volcengine"));
         assert!(providers.contains(&"codex"));
         assert!(providers.contains(&"claude-code"));
+<<<<<<< HEAD
         assert!(providers.contains(&"volcengine"));
         assert_eq!(providers.len(), 30);
+=======
+        assert_eq!(providers.len(), 31);
+>>>>>>> b2e2b1a038ffd5e3e4ca61e65cf1a6e14e9b9003
     }
 
     #[test]
