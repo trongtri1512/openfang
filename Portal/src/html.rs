@@ -1136,13 +1136,108 @@ async function renderTools(){
 async function toggleTool(name,enable){await api('POST','/api/portal/tools/'+name+'/toggle',{enabled:enable});renderTools()}
 
 // ─── Skills Market ───────────────────────────────────────────────────────────
+let _skillTab='clawhub',_skillCat='',_skillSearch='';
+const SKILL_CATS=[
+  {id:'ai-llms',label:'AI & LLMs'},{id:'coding-ides',label:'Coding & IDEs'},{id:'git-github',label:'Git & GitHub'},
+  {id:'web-frontend',label:'Web & Frontend'},{id:'devops-cloud',label:'DevOps & Cloud'},{id:'browser-automation',label:'Browser & Automation'},
+  {id:'search-research',label:'Search & Research'},{id:'data-analytics',label:'Data & Analytics'},{id:'productivity',label:'Productivity'},
+  {id:'communication',label:'Communication'},{id:'notes-pkm',label:'Notes & PKM'},{id:'security',label:'Security'},
+  {id:'cli-utilities',label:'CLI Utilities'},{id:'marketing-sales',label:'Marketing & Sales'},{id:'finance',label:'Finance'},
+  {id:'smart-home',label:'Smart Home & IoT'}
+];
+
 async function renderSkills(){
   const d=await api('GET','/api/portal/system/skills');
   const skills=d.skills||d||[];
-  if(!Array.isArray(skills)||skills.length===0){document.getElementById('mainContent').innerHTML=`<div class="sbox" style="text-align:center;padding:48px"><div style="font-size:3rem;margin-bottom:16px">🎯</div><h3 style="color:var(--d)">Skills Market</h3><p style="color:var(--m);font-size:.85rem">Chưa có skills từ OpenFang API.</p></div>`;return}
-  const CATS={coding:'💻',data:'📊',security:'🔒',business:'💼',writing:'✍️',research:'🔬'};
-  const cards=skills.map(s=>`<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg)"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:1.5rem">${s.icon||CATS[s.category]||'🎯'}</span><div><div style="font-weight:600">${s.name}</div><div style="font-size:.7rem;color:var(--d)">${s.category||''} • v${s.version||'1.0'}</div></div></div><p style="font-size:.8rem;color:var(--d);margin-bottom:10px">${s.description||''}</p><span class="badge ${s.installed?'running':'plan'}">${s.installed?'Installed':'Available'}</span></div>`).join('');
-  document.getElementById('mainContent').innerHTML=`<div class="sr"><span class="sl">Total: <span class="sv">${skills.length}</span></span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>`;
+  if(!Array.isArray(skills)){document.getElementById('mainContent').innerHTML='<div class="sbox" style="text-align:center;padding:48px"><h3>Loading...</h3></div>';return}
+
+  const installed=skills.filter(s=>s.installed);
+  const filtered=skills.filter(s=>{
+    if(_skillTab==='installed'&&!s.installed)return false;
+    if(_skillCat&&s.category!==_skillCat)return false;
+    if(_skillSearch){const q=_skillSearch.toLowerCase();if(!s.name.toLowerCase().includes(q)&&!s.description.toLowerCase().includes(q))return false}
+    return true;
+  });
+
+  // Info header
+  const infoHeader=`<div class="sbox" style="border-left:3px solid var(--o);margin-bottom:20px">
+    <h3 style="margin-bottom:8px">🎯 Skills & Ecosystem</h3>
+    <p style="font-size:.85rem;color:var(--d);margin-bottom:8px">Skills mở rộng khả năng của agents. Portal hỗ trợ hệ sinh thái <b>OpenClaw/ClawHub</b> với 17,000+ skills cộng đồng.</p>
+    <ul style="font-size:.8rem;color:var(--d);list-style:disc;padding-left:20px;line-height:1.8">
+      <li><b>Prompt-only</b> — inject context và instructions vào system prompt</li>
+      <li><b>Python / Node.js</b> — executable tools agents có thể gọi khi chat</li>
+      <li><b>MCP Servers</b> — external tools via Model Context Protocol</li>
+    </ul>
+  </div>`;
+
+  // Tabs
+  const tabs=`<div style="display:flex;gap:0;border-bottom:1px solid var(--b);margin-bottom:20px">
+    <button onclick="_skillTab='installed';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='installed'?'600':'500'};color:${_skillTab==='installed'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='installed'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Installed <span style="background:var(--bg3);padding:1px 8px;border-radius:10px;font-size:.75rem;font-weight:600;margin-left:4px">${installed.length}</span></button>
+    <button onclick="_skillTab='clawhub';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='clawhub'?'600':'500'};color:${_skillTab==='clawhub'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='clawhub'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">ClawHub</button>
+    <button onclick="_skillTab='quickstart';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='quickstart'?'600':'500'};color:${_skillTab==='quickstart'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='quickstart'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Quick Start</button>
+  </div>`;
+
+  // Quick Start tab
+  if(_skillTab==='quickstart'){
+    document.getElementById('mainContent').innerHTML=infoHeader+tabs+`<div class="sbox"><h3 style="margin-bottom:12px">🚀 Quick Start</h3>
+      <div style="display:grid;gap:12px">
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>1.</b> Chọn tab <b>ClawHub</b> để duyệt skills</div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>2.</b> Bấm <span style="color:var(--gt);font-weight:600">Install</span> để cài skill cho agent</div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>3.</b> Vào <b>Agents</b> → chọn skills đã cài cho từng agent</div>
+        <div style="padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--bg2)"><b>4.</b> Khám phá thêm tại <a href="https://clawhub.ai/" target="_blank" style="color:var(--o);font-weight:600">clawhub.ai ↗</a></div>
+      </div>
+    </div>`;return;
+  }
+
+  // Search bar
+  const searchBar=`<div style="margin-bottom:16px"><input type="text" placeholder="Search ClawHub skills... (type to search)" value="${_skillSearch}" oninput="_skillSearch=this.value;renderSkills()" style="width:100%;padding:10px 16px 10px 40px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none">
+  </div>`;
+
+  // Category pills
+  const catPills=_skillTab==='clawhub'?`<div style="margin-bottom:6px;font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--m)">CATEGORIES</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">
+    <button onclick="_skillCat='';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${!_skillCat?'var(--o)':'var(--b)'};background:${!_skillCat?'var(--o)':'var(--bg)'};color:${!_skillCat?'#fff':'var(--d)'}">All</button>
+    ${SKILL_CATS.map(c=>`<button onclick="_skillCat='${c.id}';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid ${_skillCat===c.id?'var(--o)':'var(--b)'};background:${_skillCat===c.id?'var(--o)':'var(--bg)'};color:${_skillCat===c.id?'#fff':'var(--d)'}">${c.label}</button>`).join('')}
+  </div>`:'';
+
+  // Skill cards
+  const cards=filtered.map(s=>{
+    const catLabel=SKILL_CATS.find(c=>c.id===s.category);
+    return `<div style="border:1px solid var(--b);border-radius:12px;padding:16px;background:var(--bg);box-shadow:0 1px 2px rgba(0,0,0,.04)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:1.5rem">${s.icon||'🎯'}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:.9rem">${s.name}</div>
+          <div style="font-size:.65rem;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-top:1px">${catLabel?catLabel.label:s.category}</div>
+        </div>
+        <span style="font-size:.65rem;padding:2px 8px;border-radius:6px;font-weight:600;background:${s.builtin?'var(--bb)':'var(--pb)'};color:${s.builtin?'var(--bt)':'var(--pt)'}">${s.builtin?'PROMPT':'LOCAL'}</span>
+      </div>
+      <p style="font-size:.8rem;color:var(--d);margin-bottom:12px;line-height:1.5">${s.description||''}</p>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:.7rem;color:var(--m)">v${s.version||'1.0'}</span>
+        ${s.installed
+          ?'<button class="btn-r" style="font-size:.75rem;padding:4px 12px;background:var(--rb);border-radius:6px" onclick="uninstallSkill(\''+s.id+'\')">Uninstall</button>'
+          :'<button class="btn-o" style="font-size:.75rem;padding:4px 12px" onclick="installSkill(\''+s.id+'\')">Install</button>'}
+      </div>
+    </div>`;
+  }).join('');
+
+  const noResults=filtered.length===0?`<div style="text-align:center;padding:32px;color:var(--d)"><div style="font-size:2rem;margin-bottom:8px">🔍</div><p style="font-size:.85rem">Không tìm thấy skill. Thử từ khóa khác hoặc <a href="https://clawhub.ai/" target="_blank" style="color:var(--o)">tìm trên ClawHub ↗</a></p></div>`:'';
+
+  document.getElementById('mainContent').innerHTML=infoHeader+tabs+searchBar+catPills+
+    `<div class="sr"><span class="sl">Hiển thị: <span class="sv">${filtered.length}</span> / ${skills.length} skills</span></div>`+
+    noResults+
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cards}</div>
+    <div style="text-align:center;margin-top:24px;padding:16px;font-size:.8rem;color:var(--m)">
+      Powered by <a href="https://clawhub.ai/" target="_blank" style="color:var(--o);font-weight:600">ClawHub.ai</a> — 17,000+ community skills
+    </div>`;
+}
+
+async function installSkill(id){
+  await api('POST','/api/portal/system/skills/install',{id});renderSkills();
+}
+async function uninstallSkill(id){
+  await api('POST','/api/portal/system/skills/uninstall',{id});renderSkills();
 }
 
 // ─── Gallery (Agent Templates) ────────────────────────────────────────────────

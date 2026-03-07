@@ -1498,19 +1498,57 @@ fn seed_tools(data: &mut crate::models::PortalData) -> bool {
 fn seed_skills(data: &mut crate::models::PortalData) -> bool {
     if !data.skills.is_empty() { return false; }
     let defaults = vec![
-        ("rust-expert", "Rust Expert", "🦀", "coding", "Rust expert: ownership, async, lifetimes, error handling"),
-        ("python-analyst", "Python Analyst", "🐍", "data", "Data analysis with pandas, numpy, matplotlib"),
-        ("web-developer", "Web Developer", "🌐", "coding", "Full-stack: HTML, CSS, JS, React, Node.js"),
-        ("security-auditor", "Security Auditor", "🔒", "security", "Vulnerability scanning, code audit, OWASP"),
-        ("business-analyst", "Business Analyst", "💼", "business", "Market research, financial analysis, strategy"),
-        ("content-writer", "Content Writer", "✍️", "writing", "SEO writing, blog posts, marketing copy"),
-        ("devops-engineer", "DevOps Engineer", "⚙️", "coding", "Docker, CI/CD, Kubernetes, cloud infra"),
-        ("data-scientist", "Data Scientist", "📊", "data", "ML, statistics, data visualization, prediction"),
-        ("qa-tester", "QA Tester", "🧪", "coding", "Test automation, bug reporting, quality assurance"),
-        ("research-assistant", "Research Assistant", "🔬", "research", "Academic research, literature review, summarization"),
+        // ─── ClawHub Popular (Trending) ───
+        ("self-improving-agent", "Self-Improving Agent", "🧠", "ai-llms", "Captures learnings, errors, and corrections for continuous improvement", "12.0"),
+        ("tavily-search", "Tavily Web Search", "🔍", "search-research", "AI-optimized web search via Tavily API for concise results", "10.0"),
+        ("find-skills", "Find Skills", "🎯", "ai-llms", "Meta-skill to discover and install other agent skills via natural language", "9.0"),
+        ("summarize", "Summarize", "📝", "productivity", "Summarize long URLs, documents, or uploaded files", "8.0"),
+        ("humanizer", "Humanizer", "🗣️", "ai-llms", "Refine AI-generated text to sound more natural and human-like", "7.0"),
+        ("proactive-agent", "Proactive Agent", "⚡", "ai-llms", "Transform agents into proactive helpers that anticipate user needs", "6.0"),
+        // ─── Coding & IDEs ───
+        ("rust-expert", "Rust Expert", "🦀", "coding-ides", "Rust ownership, async, lifetimes, error handling", "5.0"),
+        ("python-analyst", "Python Analyst", "🐍", "coding-ides", "Data analysis with pandas, numpy, matplotlib", "5.0"),
+        ("web-developer", "Web Developer", "🌐", "web-frontend", "Full-stack: HTML, CSS, JS, React, Node.js, TypeScript", "5.0"),
+        ("code-reviewer", "Code Reviewer", "👁️", "coding-ides", "Automated code review, best practices, refactoring suggestions", "4.0"),
+        // ─── Git & GitHub ───
+        ("github", "GitHub", "🐙", "git-github", "Manage issues, PRs, and repository content on GitHub", "8.0"),
+        ("git-assistant", "Git Assistant", "📦", "git-github", "Git commands, branching strategies, merge conflict resolution", "4.0"),
+        // ─── DevOps & Cloud ───
+        ("devops-engineer", "DevOps Engineer", "⚙️", "devops-cloud", "Docker, CI/CD, Kubernetes, cloud infrastructure", "5.0"),
+        ("docker-helper", "Docker Helper", "🐳", "devops-cloud", "Dockerfile optimization, compose management, container debugging", "4.0"),
+        // ─── Search & Research ───
+        ("research-assistant", "Research Assistant", "🔬", "search-research", "Academic research, literature review, summarization", "5.0"),
+        ("weather", "Weather", "🌤️", "search-research", "Real-time weather data retrieval for any location", "3.0"),
+        // ─── Data & Analytics ───
+        ("data-scientist", "Data Scientist", "📊", "data-analytics", "ML, statistics, data visualization, prediction models", "5.0"),
+        ("sql-expert", "SQL Expert", "🗄️", "data-analytics", "Complex queries, optimization, database design, migrations", "4.0"),
+        // ─── Productivity ───
+        ("notion", "Notion", "📓", "productivity", "Interact with Notion pages, databases, and workspaces", "6.0"),
+        ("obsidian", "Obsidian", "💎", "productivity", "Search, read, and manage notes within Obsidian vaults", "5.0"),
+        ("meeting-notes", "Meeting Notes", "🎙️", "productivity", "Summarize meeting transcripts into structured notes and action items", "4.0"),
+        // ─── Communication ───
+        ("content-writer", "Content Writer", "✍️", "communication", "SEO writing, blog posts, marketing copy, social media", "4.0"),
+        ("email-assistant", "Email Assistant", "📧", "communication", "Draft professional emails, follow-ups, and newsletters", "3.0"),
+        // ─── Security ───
+        ("security-auditor", "Security Auditor", "🔒", "security", "Vulnerability scanning, code audit, OWASP compliance", "5.0"),
+        // ─── Browser & Automation ───
+        ("browser-automation", "Browser Automation", "🖥️", "browser-automation", "Web scraping, form filling, automated testing with Puppeteer", "4.0"),
+        // ─── Notes & PKM ───
+        ("nano-pdf", "Nano PDF", "📄", "notes-pkm", "Extract text and data from PDF files efficiently", "5.0"),
+        // ─── Marketing & Sales ───
+        ("business-analyst", "Business Analyst", "💼", "marketing-sales", "Market research, financial analysis, strategy planning", "4.0"),
+        ("seo-optimizer", "SEO Optimizer", "📈", "marketing-sales", "SEO analysis, keyword research, content optimization", "3.0"),
+        // ─── Finance ───
+        ("finance-advisor", "Finance Advisor", "💰", "finance", "Budget analysis, expense tracking, financial reports", "3.0"),
+        // ─── QA & Testing ───
+        ("qa-tester", "QA Tester", "🧪", "coding-ides", "Test automation, bug reporting, quality assurance", "4.0"),
+        // ─── CLI Utilities ───
+        ("sonoscli", "Sonos CLI", "🎵", "cli-utilities", "Control Sonos speakers and music playback via commands", "3.0"),
+        // ─── Smart Home & IoT ───
+        ("smart-home", "Smart Home", "🏠", "smart-home", "Control IoT devices, home automation, sensor monitoring", "2.0"),
     ];
-    for (id, name, icon, cat, desc) in defaults {
-        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: "1.0.0".to_string(), installed: false, builtin: true });
+    for (id, name, icon, cat, desc, ver) in defaults {
+        data.skills.push(PortalSkill { id: id.to_string(), name: name.to_string(), icon: icon.to_string(), category: cat.to_string(), description: desc.to_string(), version: format!("{}", ver), installed: false, builtin: true });
     }
     true
 }
