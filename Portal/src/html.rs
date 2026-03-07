@@ -1152,13 +1152,16 @@ const SKILL_CATS=[
 async function renderSkills(){
   const d=await api('GET','/api/portal/system/skills');
   const skills=d.skills||d||[];
+  window._allSkills=skills;
   if(!Array.isArray(skills)){document.getElementById('mainContent').innerHTML='<div class="sbox" style="text-align:center;padding:48px"><h3>Đang tải...</h3></div>';return}
-
+  _renderSkillsUI(skills);
+}
+function _renderSkillsUI(skills){
   const installed=skills.filter(s=>s.installed);
   const filtered=skills.filter(s=>{
     if(_skillTab==='installed'&&!s.installed)return false;
     if(_skillCat&&s.category!==_skillCat)return false;
-    if(_skillSearch){const q=_skillSearch.toLowerCase();if(!s.name.toLowerCase().includes(q)&&!s.description.toLowerCase().includes(q))return false}
+    if(_skillSearch){const q=_skillSearch.toLowerCase();if(!s.name.toLowerCase().includes(q)&&!(s.description||'').toLowerCase().includes(q))return false}
     return true;
   });
 
@@ -1175,9 +1178,9 @@ async function renderSkills(){
 
   // Tabs
   const tabs=`<div style="display:flex;gap:0;border-bottom:1px solid var(--b);margin-bottom:20px">
-    <button onclick="_skillTab='installed';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='installed'?'600':'500'};color:${_skillTab==='installed'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='installed'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Đã cài <span style="background:var(--bg3);padding:1px 8px;border-radius:10px;font-size:.75rem;font-weight:600;margin-left:4px">${installed.length}</span></button>
-    <button onclick="_skillTab='market';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='market'?'600':'500'};color:${_skillTab==='market'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='market'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Ngành nghề</button>
-    <button onclick="_skillTab='guide';renderSkills()" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='guide'?'600':'500'};color:${_skillTab==='guide'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='guide'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Hướng dẫn</button>
+    <button onclick="_skillTab='installed';_renderSkillsUI(window._allSkills||[])" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='installed'?'600':'500'};color:${_skillTab==='installed'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='installed'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Đã cài <span style="background:var(--bg3);padding:1px 8px;border-radius:10px;font-size:.75rem;font-weight:600;margin-left:4px">${installed.length}</span></button>
+    <button onclick="_skillTab='market';_renderSkillsUI(window._allSkills||[])" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='market'?'600':'500'};color:${_skillTab==='market'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='market'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Ngành nghề</button>
+    <button onclick="_skillTab='guide';_renderSkillsUI(window._allSkills||[])" style="padding:10px 20px;border:none;background:none;font-family:inherit;font-size:.85rem;font-weight:${_skillTab==='guide'?'600':'500'};color:${_skillTab==='guide'?'var(--o)':'var(--d)'};border-bottom:${_skillTab==='guide'?'2px solid var(--o)':'2px solid transparent'};cursor:pointer">Hướng dẫn</button>
   </div>`;
 
   // Guide tab
@@ -1200,14 +1203,14 @@ async function renderSkills(){
   }
 
   // Search bar
-  const searchBar=`<div style="margin-bottom:16px"><input type="text" placeholder="Tìm kiếm skills... (tên hoặc mô tả)" value="${_skillSearch}" oninput="_skillSearch=this.value;renderSkills()" style="width:100%;padding:10px 16px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none">
+  const searchBar=`<div style="margin-bottom:16px"><input type="text" placeholder="Tìm kiếm skills... (tên hoặc mô tả)" value="${_skillSearch}" oninput="_skillSearch=this.value;_renderSkillsUI(window._allSkills||[])" id="skillSearchInput" style="width:100%;padding:10px 16px;border:1px solid var(--b);border-radius:10px;font-size:.85rem;font-family:inherit;color:var(--t);background:var(--bg);outline:none">
   </div>`;
 
   // Category pills
   const catPills=_skillTab==='market'?`<div style="margin-bottom:6px;font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--m)">NGÀNH NGHỀ</div>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">
-    <button onclick="_skillCat='';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${!_skillCat?'var(--o)':'var(--b)'};background:${!_skillCat?'var(--o)':'var(--bg)'};color:${!_skillCat?'#fff':'var(--d)'}">Tất cả</button>
-    ${SKILL_CATS.map(c=>`<button onclick="_skillCat='${c.id}';renderSkills()" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid ${_skillCat===c.id?'var(--o)':'var(--b)'};background:${_skillCat===c.id?'var(--o)':'var(--bg)'};color:${_skillCat===c.id?'#fff':'var(--d)'}">${c.label}</button>`).join('')}
+    <button onclick="_skillCat='';_renderSkillsUI(window._allSkills||[])" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid ${!_skillCat?'var(--o)':'var(--b)'};background:${!_skillCat?'var(--o)':'var(--bg)'};color:${!_skillCat?'#fff':'var(--d)'}">Tất cả</button>
+    ${SKILL_CATS.map(c=>`<button onclick="_skillCat='${c.id}';_renderSkillsUI(window._allSkills||[])" style="padding:5px 14px;border-radius:20px;font-size:.75rem;font-weight:500;font-family:inherit;cursor:pointer;border:1px solid ${_skillCat===c.id?'var(--o)':'var(--b)'};background:${_skillCat===c.id?'var(--o)':'var(--bg)'};color:${_skillCat===c.id?'#fff':'var(--d)'}">${c.label}</button>`).join('')}
   </div>`:'';
 
   // Skill cards
@@ -1237,6 +1240,8 @@ async function renderSkills(){
     `<div class="sr"><span class="sl">Hiển thị: <span class="sv">${filtered.length}</span> / ${skills.length} skills</span></div>`+
     noResults+
     `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cards}</div>`;
+  // Restore search focus after DOM replacement
+  if(_skillSearch){const el=document.getElementById('skillSearchInput');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}
 }
 
 async function installSkill(id){
